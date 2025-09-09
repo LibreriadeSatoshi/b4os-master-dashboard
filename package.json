@@ -12,6 +12,7 @@
     "@auth/prisma-adapter": "^2.10.0",
     "@monaco-editor/react": "^4.7.0",
     "@next-auth/prisma-adapter": "^1.0.7",
+    "@tailwindcss/postcss": "^4.1.13",
     "clsx": "^2.1.1",
     "framer-motion": "^12.23.12",
     "jotai": "^2.14.0",
@@ -26,7 +27,6 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
-    "@tailwindcss/postcss": "^4.1.13",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
