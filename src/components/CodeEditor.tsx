@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import Editor from '@monaco-editor/react'
 import { ValidationResult } from '@/types/challenge'
 import clsx from 'clsx'
@@ -9,7 +9,7 @@ interface CodeEditorProps {
   initialCode: string
   language: string
   onCodeChange: (code: string) => void
-  onValidate: (code: string, output?: any) => Promise<ValidationResult>
+  onValidate: (code: string, output?: unknown) => Promise<ValidationResult>
   className?: string
 }
 
@@ -48,11 +48,18 @@ export default function CodeEditor({
         // In a production environment, you'd want to use a sandboxed environment
         const func = new Function('require', 'console', code + '; return typeof hashMessage !== "undefined" ? hashMessage("Hello Bitcoin") : null')
         const mockConsole = {
-          log: (val: any) => output = val
+          log: (val: unknown) => output = val
         }
         const mockRequire = (module: string) => {
           if (module === 'crypto') {
-            return require('crypto')
+            // For client-side, we'll use a mock crypto implementation
+            return {
+              createHash: () => ({
+                update: () => ({
+                  digest: () => 'mock-hash'
+                })
+              })
+            }
           }
           throw new Error(`Module ${module} not available`)
         }

@@ -8,7 +8,7 @@ interface AuthenticatedContentProps {
 }
 
 export default function AuthenticatedContent({ children }: AuthenticatedContentProps) {
-  const { data: session, status } = useSession()
+  const { status } = useSession()
 
   if (status === 'loading') {
     return (

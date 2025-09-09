@@ -24,13 +24,13 @@ export interface Challenge {
 export interface ChallengeValidator {
   language: 'javascript' | 'python' | 'typescript'
   testCases: TestCase[]
-  validate: (userCode: string, userOutput: any) => Promise<ValidationResult>
+  validate: (userCode: string, userOutput: unknown) => Promise<ValidationResult>
 }
 
 export interface TestCase {
   name: string
-  input: any
-  expectedOutput: any
+  input: unknown
+  expectedOutput: unknown
 }
 
 export interface ValidationResult {

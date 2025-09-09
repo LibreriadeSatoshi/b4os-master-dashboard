@@ -7,6 +7,7 @@ import ChallengeCard from '@/components/ChallengeCard'
 import UserProfile from '@/components/UserProfile'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import { CodeIcon, FilterIcon, XIcon, HomeIcon, TrophyIcon } from 'lucide-react'
+import Image from 'next/image'
 
 const categories = ['all', ...challengeCategories] as const
 const difficulties = ['all', ...challengeDifficulties] as const
@@ -30,9 +31,11 @@ export default function ChallengesPage() {
           <div className="flex items-center justify-between">
             <Link href="/" className="flex items-center gap-4">
               <div className="w-10 h-10 bg-white rounded-lg p-1 flex items-center justify-center shadow-sm border border-gray-200">
-                <img 
+                <Image 
                   src="/web-app-manifest-192x192.png" 
                   alt="B4OS Logo" 
+                  width={32}
+                  height={32}
                   className="w-8 h-8 object-contain"
                 />
               </div>

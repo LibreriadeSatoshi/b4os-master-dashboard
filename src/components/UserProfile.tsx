@@ -3,6 +3,7 @@
 import { useSession, signIn, signOut } from 'next-auth/react'
 import { useState } from 'react'
 import { UserIcon, LogOutIcon, GithubIcon } from 'lucide-react'
+import Image from 'next/image'
 
 export default function UserProfile() {
   const { data: session, status } = useSession()
@@ -33,9 +34,11 @@ export default function UserProfile() {
         className="flex items-center gap-2 hover:bg-white/10 p-2 rounded-lg transition-colors"
       >
         {session.user?.image ? (
-          <img 
+          <Image 
             src={session.user.image} 
             alt={session.user.name || 'User'} 
+            width={32}
+            height={32}
             className="w-8 h-8 rounded-full border-2 border-white/20"
           />
         ) : (

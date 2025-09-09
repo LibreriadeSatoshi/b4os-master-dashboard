@@ -11,6 +11,8 @@ import ProtectedRoute from '@/components/ProtectedRoute'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { CodeIcon, ArrowLeftIcon, HomeIcon, BeakerIcon, ClockIcon, CrownIcon, CheckCircleIcon } from 'lucide-react'
+import { Challenge, ValidationResult } from '@/types/challenge'
+import Image from 'next/image'
 
 interface ChallengePageProps {
   params: Promise<{
@@ -55,19 +57,17 @@ export default function ChallengePage({ params }: ChallengePageProps) {
 
 function ChallengePageContent({ 
   challenge, 
-  userCode, 
   completedChallenge, 
   showStoryConclusion, 
   onCodeChange, 
-  onValidation, 
   onStoryConclusion 
 }: {
-  challenge: any
+  challenge: Challenge
   userCode: string
   completedChallenge: boolean
   showStoryConclusion: boolean
   onCodeChange: (code: string) => void
-  onValidation: (code: string) => Promise<any>
+  onValidation: (code: string) => Promise<ValidationResult>
   onStoryConclusion: (show: boolean) => void
 }) {
   const handleCodeChange = (code: string) => {
@@ -82,9 +82,9 @@ function ChallengePageContent({
     return result
   }
 
-  const handleStoryConclusion = () => {
-    onStoryConclusion(false)
-  }
+  // const handleStoryConclusion = () => {
+  //   onStoryConclusion(false)
+  // }
 
   const difficultyColors: Record<string, string> = {
     beginner: 'bg-green-100 text-green-800 border-green-200',
@@ -108,9 +108,11 @@ function ChallengePageContent({
           <div className="flex items-center justify-between">
             <Link href="/challenges" className="flex items-center gap-4">
               <div className="w-10 h-10 bg-white rounded-lg p-1 flex items-center justify-center shadow-sm border border-gray-200">
-                <img 
+                <Image 
                   src="/web-app-manifest-192x192.png" 
                   alt="B4OS Logo" 
+                  width={32}
+                  height={32}
                   className="w-8 h-8 object-contain"
                 />
               </div>
@@ -187,7 +189,7 @@ function ChallengePageContent({
                 <div className="border-t pt-4">
                   <p className="text-sm text-gray-500 mb-2">Prerequisites:</p>
                   <div className="flex flex-wrap gap-1">
-                    {challenge.metadata.prerequisites.map((prereq: any) => (
+                    {challenge.metadata.prerequisites.map((prereq: string) => (
                       <span key={prereq} className="px-2 py-1 bg-gray-100 rounded text-xs text-gray-600">
                         {prereq}
                       </span>
@@ -229,7 +231,7 @@ function ChallengePageContent({
                   Helpful Resources
                 </h3>
                 <div className="space-y-2">
-                  {challenge.resources.map((resource: any, index: number) => (
+                  {challenge.resources.map((resource: { title: string; url: string; type: string }, index: number) => (
                     <a
                       key={index}
                       href={resource.url}
@@ -301,7 +303,7 @@ function ChallengePageContent({
                       </span>
                     </h4>
                     <div className="grid gap-2">
-                      {challenge.validator.testCases.slice(0, 3).map((testCase: any, index: number) => (
+                      {challenge.validator.testCases.slice(0, 3).map((testCase: { name: string; input: unknown; expectedOutput: unknown }, index: number) => (
                         <div key={index} className="bg-white p-3 rounded border border-blue-100">
                           <div className="font-medium text-blue-800 text-sm mb-1">
                             📋 {testCase.name}

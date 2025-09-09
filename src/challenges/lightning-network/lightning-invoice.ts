@@ -101,7 +101,7 @@ console.log(parseInvoice(testInvoice))
         expectedOutput: { network: 'mainnet' }
       }
     ],
-    validate: async (userCode: string, userOutput: any) => {
+    validate: async (userCode: string, userOutput: unknown) => {
       try {
         if (!userOutput || typeof userOutput !== 'object') {
           return {

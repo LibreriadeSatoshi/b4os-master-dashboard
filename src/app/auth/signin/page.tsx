@@ -3,9 +3,15 @@
 import { signIn, getProviders } from 'next-auth/react'
 import { useEffect, useState } from 'react'
 import { GithubIcon } from 'lucide-react'
+import Image from 'next/image'
+
+interface Provider {
+  id: string
+  name: string
+}
 
 export default function SignIn() {
-  const [providers, setProviders] = useState<any>(null)
+  const [providers, setProviders] = useState<Record<string, Provider> | null>(null)
 
   useEffect(() => {
     const setAuthProviders = async () => {
@@ -22,9 +28,11 @@ export default function SignIn() {
           {/* Logo */}
           <div className="text-center mb-8">
             <div className="w-16 h-16 bg-white rounded-lg p-2 mx-auto mb-4">
-              <img 
+              <Image 
                 src="/web-app-manifest-192x192.png" 
                 alt="B4OS Logo" 
+                width={64}
+                height={64}
                 className="w-full h-full object-contain"
               />
             </div>
@@ -35,7 +43,7 @@ export default function SignIn() {
           {/* GitHub Sign In */}
           {providers && (
             <div className="space-y-4">
-              {Object.values(providers).map((provider: any) => (
+              {Object.values(providers).map((provider: Provider) => (
                 <div key={provider.name}>
                   <button
                     onClick={() => signIn(provider.id, { callbackUrl: '/' })}

@@ -101,10 +101,10 @@ hashMessage("Hello Bitcoin")
         expectedOutput: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
       }
     ],
-    validate: async (userCode: string, userOutput: any) => {
+    validate: async (userCode: string, userOutput: unknown) => {
       try {
         // Create a safe evaluation context
-        const crypto = require('crypto')
+        const crypto = await import('crypto')
         
         // Use the output from CodeEditor if available, otherwise try to execute the code
         let result = userOutput
@@ -113,7 +113,7 @@ hashMessage("Hello Bitcoin")
           // Fallback: execute the code ourselves
           const mockRequire = (module: string) => {
             if (module === 'crypto') {
-              return crypto
+              return crypto.default || crypto
             }
             throw new Error(`Module ${module} not available`)
           }

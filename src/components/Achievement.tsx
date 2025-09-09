@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 
 interface Achievement {
   id: string
@@ -162,7 +162,7 @@ export default function AchievementSystem({ challengeId, onAchievementUnlocked }
 
   const [notification, setNotification] = useState<Achievement | null>(null)
 
-  const unlockAchievement = (achievementId: string) => {
+  const unlockAchievement = useCallback((achievementId: string) => {
     setAchievements(prev => prev.map(achievement => {
       if (achievement.id === achievementId && !achievement.unlocked) {
         const unlockedAchievement = { ...achievement, unlocked: true }
@@ -172,7 +172,7 @@ export default function AchievementSystem({ challengeId, onAchievementUnlocked }
       }
       return achievement
     }))
-  }
+  }, [onAchievementUnlocked])
 
   // Auto-unlock based on challenge completion
   useEffect(() => {
@@ -181,7 +181,7 @@ export default function AchievementSystem({ challengeId, onAchievementUnlocked }
     } else if (challengeId === 'lightning-invoice') {
       unlockAchievement('lightning-striker')
     }
-  }, [challengeId])
+  }, [challengeId, unlockAchievement])
 
   const unlockedCount = achievements.filter(a => a.unlocked).length
 

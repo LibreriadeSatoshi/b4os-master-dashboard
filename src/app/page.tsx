@@ -1,4 +1,5 @@
 import Link from "next/link"
+import Image from "next/image"
 import { allChallenges } from "@/lib/challenges"
 import ChallengeCard from "@/components/ChallengeCard"
 import UserProfile from "@/components/UserProfile"
@@ -17,9 +18,11 @@ export default function Home() {
             <div className="flex items-center justify-between w-full">
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 bg-white rounded-lg p-1 flex items-center justify-center shadow-lg">
-                  <img 
+                  <Image 
                     src="/web-app-manifest-192x192.png" 
                     alt="B4OS Logo" 
+                    width={40}
+                    height={40}
                     className="w-10 h-10 object-contain"
                   />
                 </div>

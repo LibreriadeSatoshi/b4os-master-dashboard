@@ -3,6 +3,7 @@
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { useEffect, ReactNode } from 'react'
+import Image from 'next/image'
 
 interface ProtectedRouteProps {
   children: ReactNode
@@ -25,9 +26,11 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-gray-100 flex items-center justify-center">
         <div className="text-center">
           <div className="w-16 h-16 bg-white rounded-lg p-2 mx-auto mb-4 shadow-lg">
-            <img 
+            <Image 
               src="/web-app-manifest-192x192.png" 
               alt="B4OS Logo" 
+              width={64}
+              height={64}
               className="w-full h-full object-contain"
             />
           </div>
