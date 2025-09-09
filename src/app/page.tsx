@@ -1,103 +1,165 @@
-import Image from "next/image";
+import Link from "next/link"
+import { allChallenges } from "@/lib/challenges"
+import ChallengeCard from "@/components/ChallengeCard"
+import UserProfile from "@/components/UserProfile"
+import { RocketIcon, CodeIcon, ZapIcon, BookOpenIcon, UsersIcon, CalendarIcon, ArrowRightIcon, PlayIcon } from "lucide-react"
 
 export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const beginnerChallenges = allChallenges.filter(c => c.metadata.difficulty === 'beginner')
+  const intermediateChallenges = allChallenges.filter(c => c.metadata.difficulty === 'intermediate')
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-gray-900 to-black">
+      {/* Header */}
+      <header className="bg-white/5 backdrop-blur-sm border-b border-white/10">
+        <div className="container mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between w-full">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-white rounded-lg p-1 flex items-center justify-center shadow-lg">
+                  <img 
+                    src="/web-app-manifest-192x192.png" 
+                    alt="B4OS Logo" 
+                    className="w-10 h-10 object-contain"
+                  />
+                </div>
+                <div>
+                  <h1 className="text-2xl font-bold text-white">B4OS Challenges</h1>
+                  <p className="text-orange-300 text-sm font-medium">Bitcoin & Lightning Development</p>
+                </div>
+              </div>
+              <UserProfile />
+            </div>
+          </div>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
-  );
+      </header>
+
+      {/* Hero Section */}
+      <section className="container mx-auto px-6 py-16">
+        <div className="text-center text-white mb-16">
+          <h2 className="text-5xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-white to-orange-300 bg-clip-text text-transparent">
+            Bitcoin 4 Open Source
+          </h2>
+          <p className="text-xl text-gray-300 mb-8 max-w-4xl mx-auto leading-relaxed">
+            Technical assessment platform for the <span className="text-orange-400 font-semibold">B4OS program</span>. 
+            Prove your skills through hands-on Bitcoin and Lightning Network coding challenges.
+            We are looking for developers who are passionate about Bitcoin and Lightning Network and who are willing to contribute to the Bitcoin ecosystem.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Link 
+              href="/start" 
+              className="inline-flex items-center gap-2 bg-orange-500 text-white px-8 py-4 rounded-lg font-semibold hover:bg-orange-600 transition-all duration-300 shadow-lg transform hover:scale-105"
+            >
+              <RocketIcon className="w-5 h-5" />
+              Start Your Journey
+            </Link>
+            <Link 
+              href="/challenges" 
+              className="inline-flex items-center gap-2 bg-white/10 text-white px-8 py-4 rounded-lg font-semibold border border-white/20 hover:bg-white/20 transition-all duration-300"
+            >
+              <BookOpenIcon className="w-5 h-5" />
+              Browse Challenges
+            </Link>
+          </div>
+        </div>
+
+        {/* Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
+          <div className="bg-white/5 backdrop-blur-sm rounded-xl p-6 text-center border border-white/10 hover:border-orange-500/50 transition-colors">
+            <div className="flex justify-center mb-3">
+              <CodeIcon className="w-8 h-8 text-orange-400" />
+            </div>
+            <div className="text-3xl font-bold text-white mb-2">{allChallenges.length}</div>
+            <div className="text-gray-300">Coding Challenges</div>
+          </div>
+          <div className="bg-white/5 backdrop-blur-sm rounded-xl p-6 text-center border border-white/10 hover:border-orange-500/50 transition-colors">
+            <div className="flex justify-center mb-3">
+              <UsersIcon className="w-8 h-8 text-orange-400" />
+            </div>
+            <div className="text-3xl font-bold text-white mb-2">Free</div>
+            <div className="text-gray-300">Elite Training Program</div>
+          </div>
+          <div className="bg-white/5 backdrop-blur-sm rounded-xl p-6 text-center border border-white/10 hover:border-orange-500/50 transition-colors">
+            <div className="flex justify-center mb-3">
+              <CalendarIcon className="w-8 h-8 text-orange-400" />
+            </div>
+            <div className="text-3xl font-bold text-white mb-2">2025</div>
+            <div className="text-gray-300">Application Open</div>
+          </div>
+        </div>
+      </section>
+
+      {/* Featured Challenges */}
+      <section className="container mx-auto px-6 pb-16">
+        <div className="bg-white/95 backdrop-blur-sm rounded-2xl p-8 border border-white/20">
+          <div className="flex items-center gap-3 mb-8">
+            <ZapIcon className="w-6 h-6 text-orange-500" />
+            <h3 className="text-2xl font-bold text-gray-900">Featured Challenges</h3>
+          </div>
+          
+          {/* Beginner Challenges */}
+          <div className="mb-8">
+            <div className="flex items-center gap-2 mb-4">
+              <PlayIcon className="w-5 h-5 text-green-600" />
+              <h4 className="text-lg font-semibold text-gray-800">Beginner Level</h4>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {beginnerChallenges.map((challenge) => (
+                <ChallengeCard key={challenge.metadata.id} challenge={challenge.metadata} />
+              ))}
+            </div>
+          </div>
+
+          {/* Intermediate Challenges */}
+          {intermediateChallenges.length > 0 && (
+            <div className="mb-8">
+              <div className="flex items-center gap-2 mb-4">
+                <ZapIcon className="w-5 h-5 text-yellow-600" />
+                <h4 className="text-lg font-semibold text-gray-800">Intermediate Level</h4>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {intermediateChallenges.map((challenge) => (
+                  <ChallengeCard 
+                    key={challenge.metadata.id} 
+                    challenge={challenge.metadata}
+                    locked={true}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="text-center mt-8">
+            <Link 
+              href="/start" 
+              className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg hover:from-orange-600 hover:to-orange-700 transition-all duration-300 shadow-lg transform hover:scale-105"
+            >
+              <RocketIcon className="w-5 h-5" />
+              Start From Beginning
+              <ArrowRightIcon className="w-4 h-4" />
+            </Link>
+            <div className="mt-4">
+              <Link 
+                href="/challenges" 
+                className="inline-flex items-center gap-1 text-gray-600 hover:text-gray-900 text-sm transition-colors"
+              >
+                Or explore all challenges
+                <ArrowRightIcon className="w-3 h-3" />
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="bg-white/5 backdrop-blur-sm text-gray-300 border-t border-white/10">
+        <div className="container mx-auto px-6 py-8">
+          <div className="text-center">
+            <p className="mb-2 font-medium">B4OS Challenges - Technical Assessment Platform</p>
+            <p className="text-sm text-gray-400">Built by developers, for the Bitcoin ecosystem. Good luck!</p>
+          </div>
+        </div>
+        </footer>
+      </div>
+  )
 }

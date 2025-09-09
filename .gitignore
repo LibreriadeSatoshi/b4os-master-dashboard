@@ -17,6 +17,9 @@
 /.next/
 /out/
 
+# package lock file
+package-lock.json
+
 # production
 /build
 

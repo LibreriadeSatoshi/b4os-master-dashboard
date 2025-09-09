@@ -24,3 +24,24 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Fix for markdown content overflow */
+.prose {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+.prose code {
+  word-break: break-all;
+}
+
+.prose pre {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+/* Ensure all text content stays within bounds */
+.challenge-content * {
+  max-width: 100%;
+  word-wrap: break-word;
+}
