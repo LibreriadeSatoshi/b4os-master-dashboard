@@ -58,10 +58,12 @@ export const authOptions = {
   jwt: {
     maxAge: 30 * 24 * 60 * 60, // 30 días
   },
-  // Configuración de cookies para producción
+  // Configuración de cookies 
   cookies: {
     sessionToken: {
-      name: `__Secure-next-auth.session-token`,
+      name: process.env.NODE_ENV === 'production' 
+        ? `__Secure-next-auth.session-token`
+        : `next-auth.session-token`,
       options: {
         httpOnly: true,
         sameSite: 'lax' as const,

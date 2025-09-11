@@ -1,17 +1,15 @@
 'use client'
 
-import { useState, use } from 'react'
+import { use } from 'react'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { getChallengeById } from '@/lib/challenges'
-import CodeEditor from '@/components/CodeEditor'
 import StorySection from '@/components/StorySection'
 import UserProfile from '@/components/UserProfile'
 import ProtectedRoute from '@/components/ProtectedRoute'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
-import { CodeIcon, ArrowLeftIcon, HomeIcon, BeakerIcon, ClockIcon, CrownIcon, CheckCircleIcon } from 'lucide-react'
-import { Challenge, ValidationResult } from '@/types/challenge'
+import GitHubIntegration from '@/components/GitHubIntegration'
+import { ArrowLeftIcon, HomeIcon, ClockIcon, CrownIcon } from 'lucide-react'
+import { Challenge } from '@/types/challenge'
 import Image from 'next/image'
 
 interface ChallengePageProps {
@@ -23,68 +21,19 @@ interface ChallengePageProps {
 export default function ChallengePage({ params }: ChallengePageProps) {
   const resolvedParams = use(params)
   const challenge = getChallengeById(resolvedParams.id)
-  const [userCode, setUserCode] = useState('')
-  const [completedChallenge, setCompletedChallenge] = useState(false)
-  const [showStoryConclusion, setShowStoryConclusion] = useState(false)
 
   if (!challenge) {
     notFound()
   }
 
-  const handleValidation = async (code: string) => {
-    const result = await challenge.validator.validate(code, null)
-    if (result.success) {
-      setCompletedChallenge(true)
-      setShowStoryConclusion(true)
-    }
-    return result
-  }
-
   return (
     <ProtectedRoute>
-      <ChallengePageContent 
-        challenge={challenge}
-        userCode={userCode}
-        completedChallenge={completedChallenge}
-        showStoryConclusion={showStoryConclusion}
-        onCodeChange={setUserCode}
-        onValidation={handleValidation}
-        onStoryConclusion={setShowStoryConclusion}
-      />
+      <ChallengePageContent challenge={challenge} />
     </ProtectedRoute>
   )
 }
 
-function ChallengePageContent({ 
-  challenge, 
-  completedChallenge, 
-  showStoryConclusion, 
-  onCodeChange, 
-  onStoryConclusion 
-}: {
-  challenge: Challenge
-  userCode: string
-  completedChallenge: boolean
-  showStoryConclusion: boolean
-  onCodeChange: (code: string) => void
-  onValidation: (code: string) => Promise<ValidationResult>
-  onStoryConclusion: (show: boolean) => void
-}) {
-  const handleCodeChange = (code: string) => {
-    onCodeChange(code)
-  }
-
-  const handleValidation = async (code: string) => {
-    const result = await challenge.validator.validate(code, null)
-    if (result.success) {
-      onStoryConclusion(true)
-    }
-    return result
-  }
-
-  // const handleStoryConclusion = () => {
-  //   onStoryConclusion(false)
-  // }
+function ChallengePageContent({ challenge }: { challenge: Challenge }) {
 
   const difficultyColors: Record<string, string> = {
     beginner: 'bg-green-100 text-green-800 border-green-200',
@@ -146,9 +95,19 @@ function ChallengePageContent({
           />
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Sidebar: Challenge Info */}
-          <div className="lg:col-span-1 space-y-4">
+        {/* GitHub Integration */}
+        {challenge.metadata.github && (
+          <GitHubIntegration
+            templateRepository={challenge.metadata.github.templateRepository}
+            assignmentSlug={challenge.metadata.github.assignmentSlug}
+            fallbackContent={challenge.content}
+            challenge={challenge}
+          />
+        )}
+
+        <div className="max-w-4xl mx-auto space-y-6">
+          {/* Challenge Info */}
+          <div className="space-y-4">
             {/* Challenge Header */}
             <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
               <div className="flex items-start justify-between mb-3">
@@ -160,12 +119,6 @@ function ChallengePageContent({
                     {challenge.metadata.description}
                   </p>
                 </div>
-                {completedChallenge && (
-                  <div className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1">
-                    <CheckCircleIcon className="w-3 h-3" />
-                    Completed
-                  </div>
-                )}
               </div>
 
               <div className="flex flex-wrap gap-1.5 mb-3">
@@ -199,27 +152,6 @@ function ChallengePageContent({
               )}
             </div>
 
-            {/* Challenge Description */}
-            <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-200 overflow-hidden">
-              <div className="prose prose-sm max-w-none challenge-content prose-gray prose-headings:text-gray-900 prose-p:text-gray-800 prose-strong:text-gray-900 prose-code:text-gray-900">
-                <ReactMarkdown 
-                  remarkPlugins={[remarkGfm]}
-                  components={{
-                    p: ({ children }) => <p className="break-words text-gray-800 leading-relaxed">{children}</p>,
-                    h1: ({ children }) => <h1 className="text-2xl font-bold text-gray-900 mb-4">{children}</h1>,
-                    h2: ({ children }) => <h2 className="text-xl font-semibold text-gray-900 mb-3 mt-6">{children}</h2>,
-                    h3: ({ children }) => <h3 className="text-lg font-semibold text-gray-900 mb-2 mt-4">{children}</h3>,
-                    code: ({ children }) => <code className="break-words bg-gray-100 text-gray-900 px-1 py-0.5 rounded text-sm font-mono">{children}</code>,
-                    pre: ({ children }) => <pre className="break-words bg-gray-900 text-gray-100 p-4 rounded-lg whitespace-pre-wrap overflow-wrap-anywhere">{children}</pre>,
-                    ul: ({ children }) => <ul className="list-disc list-inside text-gray-800 space-y-1">{children}</ul>,
-                    ol: ({ children }) => <ol className="list-decimal list-inside text-gray-800 space-y-1">{children}</ol>,
-                    li: ({ children }) => <li className="text-gray-800">{children}</li>
-                  }}
-                >
-                  {challenge.content}
-                </ReactMarkdown>
-              </div>
-            </div>
 
             {/* Resources */}
             {challenge.resources && challenge.resources.length > 0 && (
@@ -254,99 +186,8 @@ function ChallengePageContent({
             )}
 
           </div>
-
-          {/* Main Code Editor - PROTAGONISTA */}
-          <div className="lg:col-span-2">
-            <div className="lg:sticky lg:top-24">
-            <div className="bg-white rounded-xl shadow-lg overflow-hidden border-2 border-orange-200 hover:border-orange-300 transition-colors">
-              <div className="px-6 py-4 border-b bg-gradient-to-r from-orange-50 to-amber-50">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                      <CodeIcon className="w-6 h-6 text-orange-500" />
-                      Code Editor
-                    </h2>
-                    <p className="text-sm text-gray-600 mt-1">
-                      Your workspace - this is where the magic happens!
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-sm text-orange-600 font-semibold">
-                      {challenge.validator.language.toUpperCase()}
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      Ready to code
-                    </div>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="p-6">
-                <div className="mb-4">
-                  <CodeEditor
-                    initialCode={challenge.initialCode || '// Write your solution here'}
-                    language={challenge.validator.language}
-                    onCodeChange={handleCodeChange}
-                    onValidate={handleValidation}
-                    className="min-h-[400px]"
-                  />
-                </div>
-
-                {/* Test Cases Info - Enhanced */}
-                {challenge.validator.testCases.length > 0 && (
-                  <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
-                    <h4 className="text-sm font-bold text-blue-900 mb-3 flex items-center gap-2">
-                      <BeakerIcon className="w-4 h-4" />
-                      Test Cases - Your code will be evaluated against these cases
-                      <span className="ml-2 text-xs bg-blue-200 text-blue-800 px-2 py-1 rounded-full">
-                        {challenge.validator.testCases.length} tests
-                      </span>
-                    </h4>
-                    <div className="grid gap-2">
-                      {challenge.validator.testCases.slice(0, 3).map((testCase: { name: string; input: unknown; expectedOutput: unknown }, index: number) => (
-                        <div key={index} className="bg-white p-3 rounded border border-blue-100">
-                          <div className="font-medium text-blue-800 text-sm mb-1">
-                            📋 {testCase.name}
-                          </div>
-                          <div className="text-xs text-gray-600">
-                            Input: 
-                            <span className="ml-2 font-mono bg-gray-100 px-2 py-1 rounded">
-                              {typeof testCase.input === 'string' 
-                                ? `"${testCase.input}"` 
-                                : JSON.stringify(testCase.input)
-                              }
-                            </span>
-                          </div>
-                        </div>
-                      ))}
-                      {challenge.validator.testCases.length > 3 && (
-                        <div className="text-sm text-blue-700 mt-2 text-center p-2 bg-blue-100 rounded flex items-center justify-center gap-1">
-                          <BeakerIcon className="w-4 h-4" />
-                          +{challenge.validator.testCases.length - 3} additional test cases will run when you validate your code
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-            </div>
-          </div>
         </div>
 
-        {/* Story Conclusion */}
-        {challenge.story && showStoryConclusion && (
-          <div className="mt-8">
-            <StorySection 
-              story={challenge.story} 
-              phase="conclusion" 
-              onComplete={() => {
-                // Here you could navigate to next challenge or show completion screen
-                console.log('Challenge story completed!')
-              }}
-            />
-          </div>
-        )}
         </div>
       </div>
   )
