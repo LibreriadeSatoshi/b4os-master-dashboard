@@ -2,6 +2,8 @@ import { Challenge } from '@/types/challenge'
 
 // Import all challenges
 import { programmingPuzzlePartyIntro } from './bitcoin-basics/puzzle-party-intro'
+import { bitcoinAddressValidator } from './bitcoin-basics/bitcoin-address-validator'
+import { satoshiToBtc } from './bitcoin-basics/satoshi-to-btc'
 import { lightningInvoiceChallenge } from './lightning-network/lightning-invoice'
 
 // Import configuration
@@ -10,6 +12,8 @@ export { challengeCategories, challengeDifficulties, categoryInfo, difficultyInf
 // Challenge registry
 export const challengeRegistry: Record<string, Challenge> = {
   'puzzle-party-intro': programmingPuzzlePartyIntro,
+  'satoshi-to-btc': satoshiToBtc,
+  'bitcoin-address-validator': bitcoinAddressValidator,
   'lightning-invoice': lightningInvoiceChallenge,
 }
 

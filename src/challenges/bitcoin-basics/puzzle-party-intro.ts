@@ -11,6 +11,7 @@ export const programmingPuzzlePartyIntro: Challenge = {
     points: 100,
     chapterNumber: 1,
     order: 1,
+    type: 'github', // GitHub Classroom project only
     github: {
       templateRepository: 'kleysc/programming-puzzle-party',
       assignmentSlug: 'wkJqDNHy'
@@ -89,93 +90,7 @@ Para comenzar oficialmente el Programming Puzzle Party, tu primera tarea es expl
 
 Una vez que aceptes la asignación, tendrás acceso completo a todos los rompecabezas. Cada uno está diseñado para enseñarte aspectos fundamentales de Bitcoin y Lightning Network de manera divertida e interactiva.
 
-**Dr. Hash está esperándote en el repositorio. ¡No lo hagas esperar!** 🎩
-  `,
-  initialCode: `const crypto = require('crypto')
-
-function hashMessage(message) {
-  // Create a SHA-256 hash object
-  const hash = crypto.createHash('sha256')
-  
-  // Update the hash with the message
-  hash.update(message)
-  
-  // Return the hash as lowercase hexadecimal
-  return hash.digest('hex')
-}
-
-// Test your function
-hashMessage("Hello Bitcoin")
-`,
-  validator: {
-    language: 'javascript',
-    testCases: [
-      {
-        name: 'Basic hash test',
-        input: 'Hello Bitcoin',
-        expectedOutput: 'b8b8f4fe7c4ee0f97f8e6c5a7a2b1c3e4f5d6e7c8b9a0b1c2d3e4f5a6b7c8d9e'
-      },
-      {
-        name: 'Empty string test',
-        input: '',
-        expectedOutput: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
-      }
-    ],
-    validate: async (userCode: string, userOutput: unknown) => {
-      try {
-        // Create a safe evaluation context
-        const crypto = await import('crypto')
-        
-        // Use the output from CodeEditor if available, otherwise try to execute the code
-        let result = userOutput
-        
-        if (!result) {
-          // Fallback: execute the code ourselves
-          const mockRequire = (module: string) => {
-            if (module === 'crypto') {
-              return crypto.default || crypto
-            }
-            throw new Error(`Module ${module} not available`)
-          }
-          
-          const func = new Function('require', userCode + '; return hashMessage("Hello Bitcoin")')
-          result = func(mockRequire)
-        }
-        
-        // Test the function exists and returns a string
-        if (!result || typeof result !== 'string') {
-          return {
-            success: false,
-            message: 'Function should return a string hash',
-          }
-        }
-
-        // Test specific cases
-        const testMessage = "Hello Bitcoin"
-        const expectedHash = crypto.createHash('sha256').update(testMessage).digest('hex')
-        
-        if (result.toLowerCase() !== expectedHash.toLowerCase()) {
-          return {
-            success: false,
-            message: `Expected hash for "${testMessage}" to be ${expectedHash}, but got ${result}`,
-          }
-        }
-
-        return {
-          success: true,
-          message: 'Great! Your hash function works correctly!',
-          passedTests: 1,
-          totalTests: 1,
-        }
-      } catch (error) {
-        return {
-          success: false,
-          message: `Error running your code: ${error}`,
-          errors: [error?.toString() || 'Unknown error'],
-        }
-      }
-    },
-  },
+**Dr. Hash está esperándote en el repositorio. ¡No lo hagas esperar!** 🎩`,
   resources: [
     {
       title: 'Bitcoin SHA-256 Documentation',
@@ -187,5 +102,15 @@ hashMessage("Hello Bitcoin")
       url: 'https://nodejs.org/api/crypto.html',
       type: 'documentation'
     }
-  ]
+  ],
+  validator: {
+    language: 'javascript',
+    testCases: [],
+    validate: async () => ({
+      success: true,
+      message: 'This is a GitHub Classroom challenge. Validation is handled by the external repository.',
+      passedTests: 0,
+      totalTests: 0
+    })
+  }
 }
