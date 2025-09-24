@@ -1,4 +1,12 @@
 {
+  "name": "b4os-master-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "cd b4os-frontend && npm run build",
+    "dev": "cd b4os-frontend && npm run dev",
+    "start": "cd b4os-frontend && npm run start"
+  },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",
     "dotenv": "^17.2.2"
