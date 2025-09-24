@@ -86,7 +86,7 @@ jobs:
     
     - name: Upload sync logs
       if: always()
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: sync-logs-${{ github.run_number }}-${{ inputs.classroom_name }}
         path: b4os-backend/logs/
