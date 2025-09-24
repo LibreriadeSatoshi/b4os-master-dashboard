@@ -1,12 +1,5 @@
 {
-  "buildCommand": "cd b4os-frontend && npm run build",
+  "buildCommand": "cd b4os-frontend && npm install && npm run build",
   "outputDirectory": "b4os-frontend/.next",
-  "installCommand": "cd b4os-frontend && npm install",
-  "framework": "nextjs",
-  "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/b4os-frontend/$1"
-    }
-  ]
+  "framework": "nextjs"
 }
