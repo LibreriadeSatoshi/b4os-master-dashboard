@@ -1,7 +1,7 @@
 'use client'
 
 import { useSearchParams } from 'next/navigation'
-import { AlertCircle, Home, ArrowLeft } from 'lucide-react'
+import { AlertCircle, Home } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { Suspense } from 'react'

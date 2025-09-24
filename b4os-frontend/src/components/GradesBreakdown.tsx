@@ -20,7 +20,7 @@ interface GradeBreakdown {
 
 export default function GradesBreakdown({ username, isExpanded, onOpenActions, onOpenReview }: GradesBreakdownProps) {
   const [grades, setGrades] = useState<GradeBreakdown[]>([])
-  const [reviewData, setReviewData] = useState<{[key: string]: {reviewers: any[], comments: any[]}}>({})
+  const [reviewData, setReviewData] = useState<{[key: string]: {reviewers: unknown[], comments: unknown[]}}>({})
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -54,7 +54,7 @@ export default function GradesBreakdown({ username, isExpanded, onOpenActions, o
       const reviewers = await SupabaseService.getStudentReviewersByStudent(username)
       const comments = await SupabaseService.getReviewComments(username)
       
-      const reviewDataMap: {[key: string]: {reviewers: any[], comments: any[]}} = {}
+      const reviewDataMap: {[key: string]: {reviewers: unknown[], comments: unknown[]}} = {}
       
       grades.forEach(grade => {
         reviewDataMap[grade.assignment_name] = {

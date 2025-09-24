@@ -114,7 +114,7 @@ export default function Home() {
     }
   };
 
-  const loadReviewStatuses = async (students: any[]) => {
+  const loadReviewStatuses = async (students: Student[]) => {
     try {
       const reviewStatusMap = new Map();
       
