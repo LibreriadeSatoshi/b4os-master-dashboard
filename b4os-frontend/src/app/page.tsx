@@ -114,7 +114,15 @@ export default function Home() {
     }
   };
 
-  const loadReviewStatuses = async (students: Student[]) => {
+  const loadReviewStatuses = async (students: Array<{
+    github_username: string;
+    assignments_completed: number;
+    resolution_time_hours?: number;
+    total_score: number;
+    total_possible: number;
+    percentage: number;
+    has_fork?: boolean;
+  }>) => {
     try {
       const reviewStatusMap = new Map();
       

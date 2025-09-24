@@ -111,8 +111,8 @@ export default function GradesBreakdown({ username, isExpanded, onOpenActions, o
       return { status: 'none', text: 'Sin revisor', color: 'text-gray-500' }
     }
     
-    const hasInProgress = data.reviewers.some(r => r.status === 'in_progress')
-    const hasCompleted = data.reviewers.some(r => r.status === 'completed')
+    const hasInProgress = data.reviewers.some((r: unknown) => (r as { status: string }).status === 'in_progress')
+    const hasCompleted = data.reviewers.some((r: unknown) => (r as { status: string }).status === 'completed')
     
     if (hasCompleted) {
       return { status: 'completed', text: 'Revisado', color: 'text-green-600' }

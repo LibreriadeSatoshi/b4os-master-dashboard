@@ -12,7 +12,7 @@ interface ProtectedContentProps {
 
 export default function ProtectedContent({ children }: ProtectedContentProps) {
   const { data: session, status } = useSession()
-  const prevStatusRef = useRef<string>()
+  const prevStatusRef = useRef<string>('')
 
   // Debug info only on status change - prevents infinite loops
   useEffect(() => {
