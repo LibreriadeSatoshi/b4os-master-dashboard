@@ -360,7 +360,7 @@ export default function Home() {
   // });
 
   return (
-    <>
+    <ProtectedContent>
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-gray-900 to-black">
         {/* Header */}
         <header className="bg-white/5 backdrop-blur-sm border-b border-white/10">
@@ -1173,6 +1173,6 @@ export default function Home() {
           </div>
         </div>
       )}
-    </>
+    </ProtectedContent>
   );
 }
