@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { SupabaseService, type Assignment } from "@/lib/supabase";
 import UserProfile from "@/components/UserProfile";
 import ProtectedContent from "@/components/ProtectedContent";
@@ -15,10 +15,17 @@ import {
   GithubIcon,
   ChevronDown,
   ChevronUp,
+  Play,
+  CheckCircle2,
+  Circle,
+  Clock,
+  UserCheck,
+  MessageSquare
 } from "lucide-react";
 import GitHubActionsModal from "@/components/GitHubActionsModal";
 import GradesBreakdown from "@/components/GradesBreakdown";
 import DashboardFilters, { FilterState } from "@/components/DashboardFilters";
+import ReviewSystem from "@/components/ReviewSystem";
 
 export default function Home() {
   const [stats, setStats] = useState<{
@@ -40,10 +47,17 @@ export default function Home() {
   >([]);
   const [isLoading, setIsLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
+  const [reviewModalOpen, setReviewModalOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<{
     username: string;
     assignmentName: string;
   } | null>(null);
+  const [selectedStudentForReview, setSelectedStudentForReview] = useState<{
+    username: string;
+    assignmentName: string;
+  } | null>(null);
+  const [showAssignmentSelector, setShowAssignmentSelector] = useState(false);
+  const [selectedStudentForAssignment, setSelectedStudentForAssignment] = useState<string | null>(null);
   const [expandedStudents, setExpandedStudents] = useState<Set<string>>(
     new Set()
   );
@@ -60,6 +74,15 @@ export default function Home() {
       has_fork?: boolean;
     }>
   >([]);
+  const [reviewStatuses, setReviewStatuses] = useState<Map<string, {
+    hasReviewer: boolean;
+    status: 'pending' | 'in_progress' | 'completed' | null;
+    reviewerCount: number;
+    latestReviewer: string | null;
+    latestAssignment: string | null;
+    averageQualityScore: number | null;
+    qualityScoreCount: number;
+  }>>(new Map());
   const [sortConfig, setSortConfig] = useState<{
     key: string | null;
     direction: "asc" | "desc";
@@ -81,10 +104,60 @@ export default function Home() {
       setAssignments(assignmentsData);
       setLeaderboard(leaderboardData);
       setStats(statsData);
+
+      // Load review data for all students
+      await loadReviewStatuses(leaderboardData);
     } catch (error) {
       console.error("Error loading data:", error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const loadReviewStatuses = async (students: any[]) => {
+    try {
+      const reviewStatusMap = new Map();
+      
+      for (const student of students) {
+        const reviewers = await SupabaseService.getStudentReviewersByStudent(student.github_username);
+        
+        if (reviewers.length > 0) {
+          // Get the most recent reviewer (by assigned_at date)
+          const latestReviewer = reviewers.sort((a, b) => 
+            new Date(b.assigned_at).getTime() - new Date(a.assigned_at).getTime()
+          )[0];
+          
+          // Calculate average quality score
+          const scoresWithQuality = reviewers.filter(r => r.code_quality_score !== null);
+          const averageQualityScore = scoresWithQuality.length > 0 
+            ? scoresWithQuality.reduce((sum, r) => sum + (r.code_quality_score || 0), 0) / scoresWithQuality.length
+            : null;
+          
+          reviewStatusMap.set(student.github_username, {
+            hasReviewer: true,
+            status: latestReviewer.status,
+            reviewerCount: reviewers.length,
+            latestReviewer: latestReviewer.reviewer_username,
+            latestAssignment: latestReviewer.assignment_name,
+            averageQualityScore: averageQualityScore ? Math.round(averageQualityScore * 10) / 10 : null,
+            qualityScoreCount: scoresWithQuality.length
+          });
+        } else {
+          reviewStatusMap.set(student.github_username, {
+            hasReviewer: false,
+            status: null,
+            reviewerCount: 0,
+            latestReviewer: null,
+            latestAssignment: null,
+            averageQualityScore: null,
+            qualityScoreCount: 0
+          });
+        }
+      }
+      
+      setReviewStatuses(reviewStatusMap);
+    } catch (error) {
+      console.error("Error loading review statuses:", error);
     }
   };
 
@@ -193,6 +266,13 @@ export default function Home() {
         case "total_possible":
           comparison = a.total_possible - b.total_possible;
           break;
+        case "quality_score":
+          const reviewStatusA = reviewStatuses.get(a.github_username);
+          const reviewStatusB = reviewStatuses.get(b.github_username);
+          const scoreA = reviewStatusA?.averageQualityScore ?? 0;
+          const scoreB = reviewStatusB?.averageQualityScore ?? 0;
+          comparison = scoreA - scoreB;
+          break;
         default:
           // Por defecto, ordenar alfabéticamente
           comparison = a.github_username.localeCompare(b.github_username);
@@ -204,13 +284,13 @@ export default function Home() {
     return filtered;
   };
 
-  const handleFiltersChange = (newFilters: FilterState) => {
+  const handleFiltersChange = useCallback((newFilters: FilterState) => {
     setFilters(newFilters);
     if (leaderboard.length > 0) {
       const filtered = applyFilters(leaderboard, newFilters);
       setFilteredStudents(filtered);
     }
-  };
+  }, [leaderboard]);
 
   // Aplicar filtros cuando cambien los estudiantes
   useEffect(() => {
@@ -238,6 +318,27 @@ export default function Home() {
     setSelectedStudent(null);
   };
 
+  const openAssignmentSelector = (username: string) => {
+    setSelectedStudentForAssignment(username);
+    setShowAssignmentSelector(true);
+  };
+
+  const openReviewModal = (username: string, assignmentName: string) => {
+    setSelectedStudentForReview({ username, assignmentName });
+    setReviewModalOpen(true);
+    setShowAssignmentSelector(false);
+  };
+
+  const closeReviewModal = () => {
+    setReviewModalOpen(false);
+    setSelectedStudentForReview(null);
+  };
+
+  const closeAssignmentSelector = () => {
+    setShowAssignmentSelector(false);
+    setSelectedStudentForAssignment(null);
+  };
+
   const toggleStudentGrades = (username: string) => {
     setExpandedStudents((prev) => {
       const newSet = new Set(prev);
@@ -250,8 +351,16 @@ export default function Home() {
     });
   };
 
+  // Debug info - commented out to prevent infinite loop
+  // console.log("Home component render:", {
+  //   isLoading,
+  //   leaderboardLength: leaderboard.length,
+  //   filteredStudentsLength: filteredStudents.length,
+  //   assignmentsLength: assignments.length
+  // });
+
   return (
-    <ProtectedContent>
+    <>
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-gray-900 to-black">
         {/* Header */}
         <header className="bg-white/5 backdrop-blur-sm border-b border-white/10">
@@ -361,8 +470,7 @@ export default function Home() {
                 <RefreshCwIcon className="w-8 h-8 animate-spin text-orange-500 mx-auto mb-4" />
                 <p className="text-gray-600">Cargando datos...</p>
               </div>
-            ) : (filteredStudents.length > 0 ? filteredStudents : leaderboard)
-                .length === 0 ? (
+            ) : (filteredStudents.length > 0 ? filteredStudents : leaderboard).length === 0 ? (
               <div className="text-center py-12">
                 <TrophyIcon className="w-12 h-12 text-gray-300 mx-auto mb-4" />
                 <p className="text-gray-600">No hay datos disponibles</p>
@@ -376,7 +484,7 @@ export default function Home() {
                 {/* Tabla con scroll horizontal en móviles */}
                 <div className="overflow-x-auto">
                   {/* Header de columnas */}
-                  <div className="hidden md:grid grid-cols-12 items-center px-6 py-4 bg-gray-50 rounded-lg text-sm font-semibold text-gray-700 mb-3">
+                  <div className="hidden md:grid grid-cols-13 items-center px-6 py-4 bg-gray-50 rounded-lg text-sm font-semibold text-gray-700 mb-3">
                     <div className="col-span-1"></div> {/* Avatar */}
                     <div
                       className="col-span-3 text-left cursor-pointer hover:bg-gray-100 rounded px-2 py-1 -mx-2 transition-colors flex items-center gap-1"
@@ -404,7 +512,7 @@ export default function Home() {
                       className="col-span-2 text-center cursor-pointer hover:bg-gray-100 rounded px-2 py-1 -mx-2 transition-colors flex items-center justify-center gap-1"
                       onClick={() => handleSort("resolution_time")}
                     >
-                      Tiempo
+                      Tiempo de Resolución
                       {sortConfig.key === "resolution_time" && (
                         <span className="text-orange-500">
                           {sortConfig.direction === "asc" ? "↑" : "↓"}
@@ -423,7 +531,7 @@ export default function Home() {
                       )}
                     </div>
                     <div
-                      className="col-span-2 text-center cursor-pointer hover:bg-gray-100 rounded px-2 py-1 -mx-2 transition-colors flex items-center justify-center gap-1"
+                      className="col-span-1 text-center cursor-pointer hover:bg-gray-100 rounded px-2 py-1 -mx-2 transition-colors flex items-center justify-center gap-1"
                       onClick={() => handleSort("percentage")}
                     >
                       Porcentaje
@@ -432,6 +540,20 @@ export default function Home() {
                           {sortConfig.direction === "asc" ? "↑" : "↓"}
                         </span>
                       )}
+                    </div>
+                    <div
+                      className="col-span-1 text-center cursor-pointer hover:bg-gray-100 rounded px-2 py-1 -mx-2 transition-colors flex items-center justify-center gap-1"
+                      onClick={() => handleSort("quality_score")}
+                    >
+                      Puntaje
+                      {sortConfig.key === "quality_score" && (
+                        <span className="text-orange-500">
+                          {sortConfig.direction === "asc" ? "↑" : "↓"}
+                        </span>
+                      )}
+                    </div>
+                    <div className="col-span-1 text-center text-sm font-semibold text-gray-700">
+                      Revisión
                     </div>
                   </div>
 
@@ -463,7 +585,7 @@ export default function Home() {
                           className="bg-white rounded-lg border border-gray-200 hover:shadow-sm transition-all duration-200"
                         >
                           {/* Vista desktop */}
-                          <div className="hidden md:grid grid-cols-12 items-center px-6 py-4 hover:bg-gray-50 transition-colors duration-200">
+                          <div className="hidden md:grid grid-cols-13 items-center px-6 py-4 hover:bg-gray-50 transition-colors duration-200">
                             {/* Avatar de GitHub */}
                             <div className="col-span-1 flex justify-center">
                               <img
@@ -549,32 +671,47 @@ export default function Home() {
                                   </GitHubTooltip>
                                 </div>
                                 <div className="flex items-center gap-1">
-                                  <button
-                                    onClick={() =>
-                                      toggleStudentGrades(
-                                        student.github_username
-                                      )
-                                    }
-                                    className="px-3 py-1 bg-gray-50 hover:bg-blue-50 border border-gray-200 hover:border-blue-200 rounded-full flex items-center gap-1 cursor-pointer transition-colors group text-xs"
-                                    title={
-                                      expandedStudents.has(
-                                        student.github_username
-                                      )
-                                        ? "Ocultar desglose de calificaciones"
-                                        : "Ver desglose de calificaciones"
-                                    }
-                                  >
-                                    {expandedStudents.has(
-                                      student.github_username
-                                    ) ? (
-                                      <ChevronUp className="w-3 h-3 text-gray-500 group-hover:text-blue-600" />
-                                    ) : (
-                                      <ChevronDown className="w-3 h-3 text-gray-500 group-hover:text-blue-600" />
-                                    )}
-                                    <span className="text-gray-500 group-hover:text-blue-600">
-                                      Ver progreso
-                                    </span>
-                                  </button>
+                                    <div className="flex items-center gap-1">
+                                      <button
+                                        onClick={() =>
+                                          toggleStudentGrades(
+                                            student.github_username
+                                          )
+                                        }
+                                        className="px-3 py-1 bg-gray-50 hover:bg-blue-50 border border-gray-200 hover:border-blue-200 rounded-full flex items-center gap-1 cursor-pointer transition-colors group text-xs"
+                                        title={
+                                          expandedStudents.has(
+                                            student.github_username
+                                          )
+                                            ? "Ocultar desglose de calificaciones"
+                                            : "Ver desglose de calificaciones"
+                                        }
+                                      >
+                                        {expandedStudents.has(
+                                          student.github_username
+                                        ) ? (
+                                          <ChevronUp className="w-3 h-3 text-gray-500 group-hover:text-blue-600" />
+                                        ) : (
+                                          <ChevronDown className="w-3 h-3 text-gray-500 group-hover:text-blue-600" />
+                                        )}
+                                        <span className="text-gray-500 group-hover:text-blue-600">
+                                          Ver progreso
+                                        </span>
+                                      </button>
+                                      <button
+                                        onClick={() =>
+                                          openAssignmentSelector(
+                                            student.github_username
+                                          )
+                                        }
+                                        className="px-3 py-1 bg-gray-50 hover:bg-green-50 border border-gray-200 hover:border-green-200 rounded-full flex items-center gap-1 cursor-pointer transition-colors group text-xs"
+                                        title="Revisar trabajo del estudiante"
+                                      >
+                                        <span className="text-gray-500 group-hover:text-green-600">
+                                          Revisar
+                                        </span>
+                                      </button>
+                                    </div>
                                 </div>
                               </div>
                             </div>
@@ -612,7 +749,7 @@ export default function Home() {
                             </div>
 
                             {/* Porcentaje */}
-                            <div className="col-span-2 text-center">
+                            <div className="col-span-1 text-center">
                               <div className="flex items-center gap-2">
                                 <div className="flex-1 bg-gray-200 rounded-full h-2">
                                   <div
@@ -647,6 +784,97 @@ export default function Home() {
                                   {student.percentage || 0}%
                                 </div>
                               </div>
+                            </div>
+
+                            {/* Puntuación de Calidad */}
+                            <div className="col-span-1 text-center">
+                              {(() => {
+                                const reviewStatus = reviewStatuses.get(student.github_username);
+                                if (!reviewStatus || !reviewStatus.averageQualityScore) {
+                                  return (
+                                    <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs font-medium">
+                                      0/10
+                                    </span>
+                                  );
+                                }
+
+                                const getQualityColor = (score: number) => {
+                                  if (score >= 8) return "bg-green-100 text-green-800";
+                                  if (score >= 6) return "bg-yellow-100 text-yellow-800";
+                                  return "bg-red-100 text-red-800";
+                                };
+
+                                return (
+                                  <div className="flex flex-col items-center gap-1">
+                                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getQualityColor(reviewStatus.averageQualityScore)}`}>
+                                      {reviewStatus.averageQualityScore}/10
+                                    </span>
+                                    {reviewStatus.qualityScoreCount > 1 && (
+                                      <span className="text-xs text-gray-500">
+                                        ({reviewStatus.qualityScoreCount} evaluaciones)
+                                      </span>
+                                    )}
+                                  </div>
+                                );
+                              })()}
+                            </div>
+
+                            {/* Estado de Revisión */}
+                            <div className="col-span-1 text-center">
+                              {(() => {
+                                const reviewStatus = reviewStatuses.get(student.github_username);
+                                if (!reviewStatus || !reviewStatus.hasReviewer) {
+                                  return (
+                                    <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs font-medium">
+                                      Sin revisor
+                                    </span>
+                                  );
+                                }
+
+                                // Show latest reviewer info
+                                if (reviewStatus.latestReviewer) {
+                                  return (
+                                    <div className="flex flex-col items-center gap-1">
+                                      <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
+                                        {reviewStatus.latestReviewer}
+                                      </span>
+                                    </div>
+                                  );
+                                }
+
+                                const statusColors = {
+                                  pending: "bg-yellow-100 text-yellow-800",
+                                  in_progress: "bg-blue-100 text-blue-800",
+                                  completed: "bg-green-100 text-green-800"
+                                };
+
+                                const statusIcons = {
+                                  pending: <Circle className="w-3 h-3" />,
+                                  in_progress: <Play className="w-3 h-3" />,
+                                  completed: <CheckCircle2 className="w-3 h-3" />
+                                };
+
+                                return (
+                                  <div className="flex flex-col items-center gap-1">
+                                    <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
+                                      {reviewStatus.latestReviewer}
+                                    </span>
+                                    <span className={`px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${statusColors[reviewStatus.status || 'pending']}`}>
+                                      {statusIcons[reviewStatus.status || 'pending']} {reviewStatus.status || 'pending'}
+                                    </span>
+                                    {reviewStatus.latestAssignment && (
+                                      <span className="text-xs text-gray-500 truncate max-w-20">
+                                        {reviewStatus.latestAssignment}
+                                      </span>
+                                    )}
+                                    {reviewStatus.reviewerCount > 1 && (
+                                      <span className="text-xs text-gray-500">
+                                        +{reviewStatus.reviewerCount - 1} más
+                                      </span>
+                                    )}
+                                  </div>
+                                );
+                              })()}
                             </div>
                           </div>
 
@@ -778,6 +1006,19 @@ export default function Home() {
                                         Actions
                                       </span>
                                     </button>
+                                    <button
+                                      onClick={() =>
+                                        openAssignmentSelector(
+                                          student.github_username
+                                        )
+                                      }
+                                      className="px-3 py-1 bg-gray-50 hover:bg-green-50 border border-gray-200 hover:border-green-200 rounded-full flex items-center gap-1 cursor-pointer transition-colors group text-sm"
+                                      title="Revisar trabajo del estudiante"
+                                    >
+                                      <span className="text-gray-500 group-hover:text-green-600">
+                                        Revisar
+                                      </span>
+                                    </button>
                                   </div>
                                 </div>
                               </div>
@@ -840,6 +1081,7 @@ export default function Home() {
                               student.github_username
                             )}
                             onOpenActions={openActionsModal}
+                            onOpenReview={openReviewModal}
                           />
                         </div>
                       );
@@ -866,13 +1108,71 @@ export default function Home() {
 
       {/* GitHub Actions Modal */}
       {selectedStudent && (
-        <GitHubActionsModal
-          isOpen={modalOpen}
-          onClose={closeActionsModal}
-          username={selectedStudent.username}
-          assignmentName={selectedStudent.assignmentName}
-        />
+        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white/95 backdrop-blur-md rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-white/20">
+            <GitHubActionsModal
+              isOpen={modalOpen}
+              onClose={closeActionsModal}
+              username={selectedStudent.username}
+              assignmentName={selectedStudent.assignmentName}
+            />
+          </div>
+        </div>
       )}
-    </ProtectedContent>
+
+      {/* Assignment Selector Modal */}
+      {showAssignmentSelector && selectedStudentForAssignment && (
+        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white/95 backdrop-blur-md rounded-2xl max-w-md w-full shadow-2xl border border-white/20">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Seleccionar Assignment
+                </h3>
+                <button
+                  onClick={closeAssignmentSelector}
+                  className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 hover:text-gray-700 transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <p className="text-sm text-gray-600 mb-4">
+                Selecciona el assignment que quieres revisar para <strong>{selectedStudentForAssignment}</strong>:
+              </p>
+              <div className="space-y-2">
+                {assignments.map((assignment) => (
+                  <button
+                    key={assignment.id}
+                    onClick={() => openReviewModal(selectedStudentForAssignment, assignment.name)}
+                    className="w-full p-3 text-left bg-gradient-to-r from-white to-gray-50 rounded-xl border border-gray-200/50 shadow-sm hover:shadow-md transition-shadow hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50"
+                  >
+                    <div className="font-medium text-gray-900">{assignment.name}</div>
+                    <div className="text-sm text-gray-500">
+                      {assignment.points_available ? `${assignment.points_available} puntos` : 'Sin puntos asignados'}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Review System Modal */}
+      {selectedStudentForReview && (
+        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white/95 backdrop-blur-md rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-white/20">
+            <ReviewSystem
+              studentUsername={selectedStudentForReview.username}
+              assignmentName={selectedStudentForReview.assignmentName}
+              repositoryUrl={`https://github.com/${selectedStudentForReview.username}/${selectedStudentForReview.assignmentName}`}
+              onClose={closeReviewModal}
+            />
+          </div>
+        </div>
+      )}
+    </>
   );
 }
