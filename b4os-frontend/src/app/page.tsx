@@ -281,6 +281,18 @@ export default function Home() {
           const scoreB = reviewStatusB?.averageQualityScore ?? 0;
           comparison = scoreA - scoreB;
           break;
+        case "review_status":
+          const reviewStatusA2 = reviewStatuses.get(a.github_username);
+          const reviewStatusB2 = reviewStatuses.get(b.github_username);
+          const statusA = reviewStatusA2?.status || 'pending';
+          const statusB = reviewStatusB2?.status || 'pending';
+          
+          // Definir orden de prioridad para los estados
+          const statusOrder = { 'completed': 3, 'in_progress': 2, 'pending': 1, 'none': 0 };
+          const orderA = statusOrder[statusA as keyof typeof statusOrder] || 0;
+          const orderB = statusOrder[statusB as keyof typeof statusOrder] || 0;
+          comparison = orderA - orderB;
+          break;
         default:
           // Por defecto, ordenar alfabéticamente
           comparison = a.github_username.localeCompare(b.github_username);
@@ -520,7 +532,7 @@ export default function Home() {
                       className="col-span-2 text-center cursor-pointer hover:bg-gray-100 rounded px-2 py-1 -mx-2 transition-colors flex items-center justify-center gap-1"
                       onClick={() => handleSort("resolution_time")}
                     >
-                      Tiempo de Resolución
+                      Tiempo
                       {sortConfig.key === "resolution_time" && (
                         <span className="text-orange-500">
                           {sortConfig.direction === "asc" ? "↑" : "↓"}
@@ -531,7 +543,7 @@ export default function Home() {
                       className="col-span-2 text-center cursor-pointer hover:bg-gray-100 rounded px-2 py-1 -mx-2 transition-colors flex items-center justify-center gap-1"
                       onClick={() => handleSort("total_score")}
                     >
-                      Puntos
+                      Puntos Obtenidos
                       {sortConfig.key === "total_score" && (
                         <span className="text-orange-500">
                           {sortConfig.direction === "asc" ? "↑" : "↓"}
@@ -542,7 +554,7 @@ export default function Home() {
                       className="col-span-1 text-center cursor-pointer hover:bg-gray-100 rounded px-2 py-1 -mx-2 transition-colors flex items-center justify-center gap-1"
                       onClick={() => handleSort("percentage")}
                     >
-                      Porcentaje
+                      Progreso
                       {sortConfig.key === "percentage" && (
                         <span className="text-orange-500">
                           {sortConfig.direction === "asc" ? "↑" : "↓"}
@@ -553,15 +565,23 @@ export default function Home() {
                       className="col-span-1 text-center cursor-pointer hover:bg-gray-100 rounded px-2 py-1 -mx-2 transition-colors flex items-center justify-center gap-1"
                       onClick={() => handleSort("quality_score")}
                     >
-                      Puntaje
+                      Calidad
                       {sortConfig.key === "quality_score" && (
                         <span className="text-orange-500">
                           {sortConfig.direction === "asc" ? "↑" : "↓"}
                         </span>
                       )}
                     </div>
-                    <div className="col-span-1 text-center text-sm font-semibold text-gray-700">
+                    <div
+                      className="col-span-1 text-center cursor-pointer hover:bg-gray-100 rounded px-2 py-1 -mx-2 transition-colors flex items-center justify-center gap-1"
+                      onClick={() => handleSort("review_status")}
+                    >
                       Revisión
+                      {sortConfig.key === "review_status" && (
+                        <span className="text-orange-500">
+                          {sortConfig.direction === "asc" ? "↑" : "↓"}
+                        </span>
+                      )}
                     </div>
                   </div>
 
@@ -732,7 +752,7 @@ export default function Home() {
                               </div>
                             </div>
 
-                            {/* Tiempo de Resolución */}
+                            {/* Tiempo */}
                             <div className="col-span-2 text-center">
                               <div className="text-sm text-gray-700 font-medium">
                                 {student.resolution_time_hours !== null &&
@@ -756,7 +776,7 @@ export default function Home() {
                               </div>
                             </div>
 
-                            {/* Porcentaje */}
+                            {/* Progreso */}
                             <div className="col-span-1 text-center">
                               <div className="flex items-center gap-2">
                                 <div className="flex-1 bg-gray-200 rounded-full h-2">
@@ -1031,7 +1051,7 @@ export default function Home() {
                                 </div>
                               </div>
 
-                              {/* Porcentaje */}
+                              {/* Progreso */}
                               <div
                                 className={`px-3 py-1 rounded-full text-sm font-medium ${
                                   student.percentage >= 80
