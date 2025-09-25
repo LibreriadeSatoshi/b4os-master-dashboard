@@ -13,8 +13,6 @@ import {
   AlertCircle,
   ExternalLink,
   User,
-  Calendar,
-  Flag,
   MoreVertical,
   Trash2
 } from "lucide-react";
@@ -26,11 +24,12 @@ interface ReviewSystemProps {
   onClose?: () => void;
 }
 
-export default function ReviewSystem({ 
-  studentUsername, 
-  assignmentName, 
+export default function ReviewSystem({
+  studentUsername,
+  assignmentName,
   repositoryUrl,
-  onClose 
+  onClose,
+  onDataUpdate
 }: ReviewSystemProps) {
   const { data: session } = useSession();
   const [reviewers, setReviewers] = useState<StudentReviewer[]>([]);
@@ -47,7 +46,7 @@ export default function ReviewSystem({
   const [newComment, setNewComment] = useState("");
   const [commentType, setCommentType] = useState<"general" | "code_quality" | "functionality" | "documentation" | "suggestion">("general");
   const [commentPriority, setCommentPriority] = useState<"low" | "medium" | "high">("medium");
-  const [qualityScore, setQualityScore] = useState<number | null>(null);
+  // const [qualityScore, setQualityScore] = useState<number | null>(null);
   const [openMenuId, setOpenMenuId] = useState<number | null>(null);
 
   useEffect(() => {
@@ -123,7 +122,10 @@ export default function ReviewSystem({
       if (result.success) {
         setShowAssignForm(false);
         setSelectedReviewer("");
-        loadData();
+        await loadData();
+        if (onDataUpdate) {
+          setTimeout(onDataUpdate, 100);
+        }
       } else {
         alert(`Error: ${result.error}`);
       }
@@ -155,7 +157,10 @@ export default function ReviewSystem({
       setCommentType("general");
       setCommentPriority("medium");
       setShowCommentForm(false);
-      loadData();
+      await loadData();
+      if (onDataUpdate) {
+        setTimeout(onDataUpdate, 100);
+      }
     } else {
       alert(`Error: ${result.error}`);
     }
@@ -164,7 +169,10 @@ export default function ReviewSystem({
   const handleStatusUpdate = async (reviewerId: number, status: "pending" | "in_progress" | "completed") => {
     const result = await SupabaseService.updateReviewerStatus(reviewerId, status);
     if (result.success) {
-      loadData();
+      await loadData();
+      if (onDataUpdate) {
+        setTimeout(onDataUpdate, 100);
+      }
     } else {
       alert(`Error: ${result.error}`);
     }
@@ -173,7 +181,11 @@ export default function ReviewSystem({
   const handleQualityScoreUpdate = async (reviewerId: number, score: number) => {
     const result = await SupabaseService.updateCodeQualityScore(reviewerId, score);
     if (result.success) {
-      loadData();
+      await loadData();
+      // Give a small delay to ensure DB changes are reflected
+      if (onDataUpdate) {
+        setTimeout(onDataUpdate, 100);
+      }
     } else {
       alert(`Error: ${result.error}`);
     }
@@ -191,7 +203,10 @@ export default function ReviewSystem({
           throw new Error(`Failed to remove reviewer: ${error.message}`);
         }
 
-        loadData();
+        await loadData();
+        if (onDataUpdate) {
+          setTimeout(onDataUpdate, 100);
+        }
       } catch (error) {
         console.error("Error removing reviewer:", error);
         alert(`Error: ${error}`);
@@ -199,7 +214,7 @@ export default function ReviewSystem({
     }
   };
 
-  const getStatusIcon = (status: string) => {
+  // const getStatusIcon = (status: string) => {
     switch (status) {
       case "completed":
         return <CheckCircle className="w-4 h-4" />;

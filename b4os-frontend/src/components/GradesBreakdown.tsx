@@ -9,6 +9,7 @@ interface GradesBreakdownProps {
   isExpanded: boolean
   onOpenActions?: (username: string, assignmentName: string) => void
   onOpenReview?: (username: string, assignmentName: string) => void
+  onDataUpdate?: () => void
 }
 
 interface GradeBreakdown {

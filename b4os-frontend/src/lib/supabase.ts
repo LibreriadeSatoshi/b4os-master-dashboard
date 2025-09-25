@@ -126,8 +126,26 @@ export class SupabaseService {
     return data || []
   }
 
-  // Get student statistics
+  // Get student statistics (optimized with single query when possible)
   static async getStudentStats() {
+    // Try to use database views/functions for better performance
+    const { data: statsData, error: statsError } = await supabase
+      .from('dashboard_stats')
+      .select('*')
+      .single()
+
+    if (!statsError && statsData) {
+      return {
+        totalStudents: statsData.total_students,
+        totalAssignments: statsData.total_assignments,
+        totalGrades: statsData.total_grades,
+        avgScore: statsData.avg_score,
+        completionRate: statsData.completion_rate
+      }
+    }
+
+    // Fallback to original approach if dashboard_stats view doesn't exist
+    logger.warn('Dashboard stats view not available, falling back to multiple queries')
     const [students, assignments, grades] = await Promise.all([
       this.getStudents(),
       this.getAssignments(),
@@ -137,15 +155,15 @@ export class SupabaseService {
     const totalStudents = students.length
     const totalAssignments = assignments.length
     const totalGrades = grades.length
-    
+
     // Calculate average score
     const validGrades = grades.filter(g => g.points_awarded !== null)
-    const avgScore = validGrades.length > 0 
+    const avgScore = validGrades.length > 0
       ? Math.round(validGrades.reduce((sum, g) => sum + (g.points_awarded || 0), 0) / validGrades.length)
       : 0
 
     // Calculate completion rate
-    const completionRate = totalStudents > 0 
+    const completionRate = totalStudents > 0
       ? Math.round((validGrades.length / (totalStudents * totalAssignments)) * 100)
       : 0
 
@@ -344,12 +362,36 @@ export class SupabaseService {
       .from('student_reviewers')
       .select('*')
       .order('created_at', { ascending: false })
-    
+
     if (error) {
       throw new Error(`Failed to fetch student reviewers: ${error.message}`)
     }
-    
+
     return data || []
+  }
+
+  // Get all student reviewers grouped by student (optimized for batch loading)
+  static async getAllStudentReviewersGrouped(): Promise<Map<string, StudentReviewer[]>> {
+    const { data, error } = await supabase
+      .from('student_reviewers')
+      .select('*')
+      .order('student_username, created_at', { ascending: [true, false] })
+
+    if (error) {
+      throw new Error(`Failed to fetch student reviewers: ${error.message}`)
+    }
+
+    // Group by student username
+    const reviewerMap = new Map<string, StudentReviewer[]>()
+    data?.forEach(reviewer => {
+      const username = reviewer.student_username
+      if (!reviewerMap.has(username)) {
+        reviewerMap.set(username, [])
+      }
+      reviewerMap.get(username)!.push(reviewer)
+    })
+
+    return reviewerMap
   }
 
   // Get reviewers for a specific student
@@ -542,11 +584,51 @@ export class SupabaseService {
       .eq('role', 'admin')
       .eq('status', 'active')
       .order('github_username')
-    
+
     if (error) {
       throw new Error(`Failed to fetch available reviewers: ${error.message}`)
     }
-    
+
     return data || []
+  }
+
+  // Optimized data loading for dashboard initialization
+  static async getDashboardData(): Promise<{
+    leaderboard: Array<{
+      github_username: string
+      total_score: number
+      total_possible: number
+      percentage: number
+      assignments_completed: number
+      fork_created_at?: string
+      last_updated_at?: string
+      resolution_time_hours?: number
+      ranking_position?: number
+      has_fork?: boolean
+    }>
+    assignments: Assignment[]
+    stats: {
+      totalStudents: number
+      totalAssignments: number
+      totalGrades: number
+      avgScore: number
+      completionRate: number
+    }
+    reviewersGrouped: Map<string, StudentReviewer[]>
+  }> {
+    // Execute all queries in parallel
+    const [leaderboard, assignments, stats, reviewersGrouped] = await Promise.all([
+      this.getLeaderboard(),
+      this.getAssignments(),
+      this.getStudentStats(),
+      this.getAllStudentReviewersGrouped()
+    ])
+
+    return {
+      leaderboard,
+      assignments,
+      stats,
+      reviewersGrouped
+    }
   }
 }
