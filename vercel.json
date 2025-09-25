@@ -1,19 +1,6 @@
 {
-  "version": 2,
-  "name": "b4os-master-dashboard",
-  "builds": [
-    {
-      "src": "b4os-frontend/package.json",
-      "use": "@vercel/next",
-      "config": {
-        "distDir": ".next"
-      }
-    }
-  ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "/b4os-frontend/$1"
-    }
-  ]
+  "buildCommand": "cd b4os-frontend && npm install && npm run build",
+  "outputDirectory": "b4os-frontend/.next",
+  "framework": "nextjs",
+  "installCommand": "cd b4os-frontend && npm install"
 }
