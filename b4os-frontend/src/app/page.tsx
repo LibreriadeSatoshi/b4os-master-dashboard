@@ -1,8 +1,8 @@
 "use client";
 
-import Image from "next/image";
 import { useEffect, useState, useCallback } from "react";
 import { SupabaseService, type Assignment } from "@/lib/supabase";
+import type { StudentReviewer } from "@/lib/supabase";
 import UserProfile from "@/components/UserProfile";
 import ProtectedContent from "@/components/ProtectedContent";
 import GitHubTooltip from "@/components/GitHubTooltip";
@@ -18,9 +18,6 @@ import {
   Play,
   CheckCircle2,
   Circle,
-  Clock,
-  UserCheck,
-  MessageSquare
 } from "lucide-react";
 import GitHubActionsModal from "@/components/GitHubActionsModal";
 import GradesBreakdown from "@/components/GradesBreakdown";
@@ -95,6 +92,26 @@ export default function Home() {
   const loadData = async () => {
     setIsLoading(true);
     try {
+      // Use optimized single call to load all dashboard data
+      const dashboardData = await SupabaseService.getDashboardData();
+
+      setAssignments(dashboardData.assignments);
+      setLeaderboard(dashboardData.leaderboard);
+      setStats(dashboardData.stats);
+
+      // Process review data from grouped results (no more N+1 queries)
+      processReviewStatuses(dashboardData.leaderboard, dashboardData.reviewersGrouped);
+    } catch (error) {
+      console.error("Error loading data:", error);
+      // Fallback to original method if optimized version fails
+      await loadDataFallback();
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const loadDataFallback = async () => {
+    try {
       const [assignmentsData, leaderboardData, statsData] = await Promise.all([
         SupabaseService.getAssignments(),
         SupabaseService.getLeaderboard(),
@@ -105,13 +122,65 @@ export default function Home() {
       setLeaderboard(leaderboardData);
       setStats(statsData);
 
-      // Load review data for all students
+      // Load review data for all students (original method)
       await loadReviewStatuses(leaderboardData);
     } catch (error) {
-      console.error("Error loading data:", error);
-    } finally {
-      setIsLoading(false);
+      console.error("Error in fallback data loading:", error);
     }
+  };
+
+  const processReviewStatuses = (
+    students: Array<{
+      github_username: string;
+      assignments_completed: number;
+      resolution_time_hours?: number;
+      total_score: number;
+      total_possible: number;
+      percentage: number;
+      has_fork?: boolean;
+    }>,
+    reviewersGrouped: Map<string, StudentReviewer[]>
+  ) => {
+    const reviewStatusMap = new Map();
+
+    for (const student of students) {
+      const reviewers = reviewersGrouped.get(student.github_username) || [];
+
+      if (reviewers.length > 0) {
+        // Get the most recent reviewer (by assigned_at date)
+        const latestReviewer = reviewers.sort((a, b) =>
+          new Date(b.assigned_at).getTime() - new Date(a.assigned_at).getTime()
+        )[0];
+
+        // Calculate average quality score
+        const scoresWithQuality = reviewers.filter(r => r.code_quality_score !== null);
+        const averageQualityScore = scoresWithQuality.length > 0
+          ? scoresWithQuality.reduce((sum, r) => sum + (r.code_quality_score || 0), 0) / scoresWithQuality.length
+          : null;
+
+        reviewStatusMap.set(student.github_username, {
+          hasReviewer: true,
+          status: latestReviewer.status,
+          reviewerCount: reviewers.length,
+          latestReviewer: latestReviewer.reviewer_username,
+          latestAssignment: latestReviewer.assignment_name,
+          averageQualityScore: averageQualityScore ? Math.round(averageQualityScore) : null,
+          qualityScoreCount: scoresWithQuality.length
+        });
+      } else {
+        reviewStatusMap.set(student.github_username, {
+          hasReviewer: false,
+          status: null,
+          reviewerCount: 0,
+          latestReviewer: null,
+          latestAssignment: null,
+          averageQualityScore: null,
+          qualityScoreCount: 0
+        });
+      }
+    }
+
+    setReviewStatuses(reviewStatusMap);
   };
 
   const loadReviewStatuses = async (students: Array<{
@@ -125,29 +194,29 @@ export default function Home() {
   }>) => {
     try {
       const reviewStatusMap = new Map();
-      
+
       for (const student of students) {
         const reviewers = await SupabaseService.getStudentReviewersByStudent(student.github_username);
-        
+
         if (reviewers.length > 0) {
           // Get the most recent reviewer (by assigned_at date)
-          const latestReviewer = reviewers.sort((a, b) => 
+          const latestReviewer = reviewers.sort((a, b) =>
             new Date(b.assigned_at).getTime() - new Date(a.assigned_at).getTime()
           )[0];
-          
+
           // Calculate average quality score
           const scoresWithQuality = reviewers.filter(r => r.code_quality_score !== null);
-          const averageQualityScore = scoresWithQuality.length > 0 
+          const averageQualityScore = scoresWithQuality.length > 0
             ? scoresWithQuality.reduce((sum, r) => sum + (r.code_quality_score || 0), 0) / scoresWithQuality.length
             : null;
-          
+
           reviewStatusMap.set(student.github_username, {
             hasReviewer: true,
             status: latestReviewer.status,
             reviewerCount: reviewers.length,
             latestReviewer: latestReviewer.reviewer_username,
             latestAssignment: latestReviewer.assignment_name,
-            averageQualityScore: averageQualityScore ? Math.round(averageQualityScore * 10) / 10 : null,
+            averageQualityScore: averageQualityScore ? Math.round(averageQualityScore) : null,
             qualityScoreCount: scoresWithQuality.length
           });
         } else {
@@ -162,7 +231,7 @@ export default function Home() {
           });
         }
       }
-      
+
       setReviewStatuses(reviewStatusMap);
     } catch (error) {
       console.error("Error loading review statuses:", error);
@@ -363,6 +432,26 @@ export default function Home() {
     setReviewModalOpen(false);
     setSelectedStudentForReview(null);
   };
+
+  const handleReviewDataUpdate = useCallback(async () => {
+    try {
+      // Always reload fresh leaderboard data to get updated scores
+      const freshLeaderboard = await SupabaseService.getLeaderboard();
+      const reviewersGrouped = await SupabaseService.getAllStudentReviewersGrouped();
+
+      // Update both leaderboard and review statuses with fresh data
+      setLeaderboard(freshLeaderboard);
+      processReviewStatuses(freshLeaderboard, reviewersGrouped);
+
+      console.log('Review data updated successfully');
+    } catch (error) {
+      console.warn('Review data update failed:', error);
+      // Fallback: just update review statuses with current leaderboard
+      if (leaderboard.length > 0) {
+        await loadReviewStatuses(leaderboard);
+      }
+    }
+  }, [leaderboard]);
 
   const closeAssignmentSelector = () => {
     setShowAssignmentSelector(false);
@@ -574,6 +663,7 @@ export default function Home() {
                     <div
                       className="col-span-1 text-center cursor-pointer hover:bg-gray-100 rounded px-2 py-1 -mx-2 transition-colors flex items-center justify-center gap-1"
                       onClick={() => handleSort("quality_score")}
+                      title="Promedio de calidad de código (basado en todas las evaluaciones)"
                     >
                       Code Quality
                       {sortConfig.key === "quality_score" && (
@@ -844,12 +934,15 @@ export default function Home() {
 
                                 return (
                                   <div className="flex flex-col items-center gap-1">
-                                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getQualityColor(reviewStatus.averageQualityScore)}`}>
+                                    <span
+                                      className={`px-2 py-1 rounded-full text-xs font-medium ${getQualityColor(reviewStatus.averageQualityScore)}`}
+                                      title={`Promedio de calidad de código: ${reviewStatus.averageQualityScore}/10 basado en ${reviewStatus.qualityScoreCount} evaluación${reviewStatus.qualityScoreCount > 1 ? 'es' : ''}`}
+                                    >
                                       {reviewStatus.averageQualityScore}/10
                                     </span>
                                     {reviewStatus.qualityScoreCount > 1 && (
                                       <span className="text-xs text-gray-500">
-                                        ({reviewStatus.qualityScoreCount} evaluaciones)
+                                        ({reviewStatus.qualityScoreCount} eval.)
                                       </span>
                                     )}
                                   </div>
@@ -1120,6 +1213,7 @@ export default function Home() {
                             )}
                             onOpenActions={openActionsModal}
                             onOpenReview={openReviewModal}
+                            onDataUpdate={handleReviewDataUpdate}
                           />
                         </div>
                       );
@@ -1193,7 +1287,7 @@ export default function Home() {
       )}
 
       {/* Review System Modal */}
-      {selectedStudentForReview && (
+      {reviewModalOpen && selectedStudentForReview && (
         <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-white/95 backdrop-blur-md rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-white/20">
             <ReviewSystem
@@ -1201,6 +1295,7 @@ export default function Home() {
               assignmentName={selectedStudentForReview.assignmentName}
               repositoryUrl={`https://github.com/${selectedStudentForReview.username}/${selectedStudentForReview.assignmentName}`}
               onClose={closeReviewModal}
+              onDataUpdate={handleReviewDataUpdate}
             />
           </div>
         </div>
