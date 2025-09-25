@@ -2,7 +2,6 @@
 
 import { useSession } from "next-auth/react"
 import { ReactNode, useEffect, useRef } from "react"
-import Image from "next/image"
 import UserProfile from "@/components/UserProfile"
 import { RefreshCwIcon } from "lucide-react"
 
@@ -46,8 +45,8 @@ export default function ProtectedContent({ children }: ProtectedContentProps) {
         <div className="text-center max-w-lg mx-auto px-6">
           {/* Logo */}
           <div className="w-24 h-24 bg-white rounded-2xl p-3 flex items-center justify-center shadow-2xl mx-auto mb-8">
-            <Image
-              src="/web-app-manifest-192x192.png"
+              <img
+                src="/web-app-manifest-192x192.png"
               alt="B4OS Logo"
               width={72}
               height={72}
@@ -86,8 +85,8 @@ export default function ProtectedContent({ children }: ProtectedContentProps) {
         <div className="text-center max-w-lg mx-auto px-6">
           {/* Logo */}
           <div className="w-24 h-24 bg-white rounded-2xl p-3 flex items-center justify-center shadow-2xl mx-auto mb-8">
-            <Image
-              src="/web-app-manifest-192x192.png"
+              <img
+                src="/web-app-manifest-192x192.png"
               alt="B4OS Logo"
               width={72}
               height={72}
