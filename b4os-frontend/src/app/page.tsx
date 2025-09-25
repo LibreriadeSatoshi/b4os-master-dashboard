@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { SupabaseService, type Assignment } from "@/lib/supabase";
+import type { StudentReviewer } from "@/lib/supabase";
 import UserProfile from "@/components/UserProfile";
 import ProtectedContent from "@/components/ProtectedContent";
 import GitHubTooltip from "@/components/GitHubTooltip";
@@ -43,7 +44,7 @@ export default function Home() {
   >([]);
   const [isLoading, setIsLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
-  // const [reviewModalOpen, setReviewModalOpen] = useState(false);
+  const [reviewModalOpen, setReviewModalOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<{
     username: string;
     assignmentName: string;
@@ -1286,7 +1287,7 @@ export default function Home() {
       )}
 
       {/* Review System Modal */}
-      {selectedStudentForReview && (
+      {reviewModalOpen && selectedStudentForReview && (
         <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-white/95 backdrop-blur-md rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-white/20">
             <ReviewSystem
