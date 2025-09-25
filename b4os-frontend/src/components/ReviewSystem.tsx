@@ -22,6 +22,7 @@ interface ReviewSystemProps {
   assignmentName: string;
   repositoryUrl?: string;
   onClose?: () => void;
+  onDataUpdate?: () => void;
 }
 
 export default function ReviewSystem({
@@ -215,17 +216,17 @@ export default function ReviewSystem({
   };
 
   // const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "completed":
-        return <CheckCircle className="w-4 h-4" />;
-      case "in_progress":
-        return <Clock className="w-4 h-4" />;
-      case "pending":
-        return <AlertCircle className="w-4 h-4" />;
-      default:
-        return <AlertCircle className="w-4 h-4" />;
-    }
-  };
+  //   switch (status) {
+  //     case "completed":
+  //       return <CheckCircle className="w-4 h-4" />;
+  //     case "in_progress":
+  //       return <Clock className="w-4 h-4" />;
+  //     case "pending":
+  //       return <AlertCircle className="w-4 h-4" />;
+  //     default:
+  //       return <AlertCircle className="w-4 h-4" />;
+  //   }
+  // };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -268,19 +269,17 @@ export default function ReviewSystem({
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="p-6">
-        <div className="animate-pulse space-y-4">
-          <div className="h-4 bg-gray-200 rounded w-1/4"></div>
-          <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-          <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-        </div>
-      </div>
-    );
-  }
-
   return (
+    <>
+      {isLoading ? (
+        <div className="p-6">
+          <div className="animate-pulse space-y-4">
+            <div className="h-4 bg-gray-200 rounded w-1/4"></div>
+            <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+            <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+          </div>
+        </div>
+      ) : (
     <div className="p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -628,5 +627,7 @@ export default function ReviewSystem({
         </div>
       </div>
     </div>
+      )}
+    </>
   );
 }
