@@ -35,6 +35,11 @@ jobs:
         sudo apt update
         sudo apt install gh
     
+    - name: Install GitHub CLI Classroom Extension
+      run: |
+        gh extension install github/gh-classroom
+        gh extension list
+    
     - name: Authenticate GitHub CLI
       run: |
         echo "${{ secrets.GITHUB_TOKEN }}" | gh auth login --with-token
@@ -72,12 +77,24 @@ jobs:
         echo "SUPABASE_URL starts with: ${SUPABASE_URL:0:20}..."
         echo "SUPABASE_KEY starts with: ${SUPABASE_KEY:0:20}..."
         
+        # Check if secrets are example values
+        if [[ $SUPABASE_URL == *"your-project"* ]] || [[ $SUPABASE_URL == *"example"* ]]; then
+          echo "ERROR: SUPABASE_URL appears to be an example value. Please update the secret with your actual Supabase URL."
+          exit 1
+        fi
+        
+        if [[ $SUPABASE_KEY == *"your-anon-key"* ]] || [[ $SUPABASE_KEY == *"example"* ]]; then
+          echo "ERROR: SUPABASE_KEY appears to be an example value. Please update the secret with your actual Supabase key."
+          exit 1
+        fi
+        
         # Test if URL is reachable
         if [[ $SUPABASE_URL == https://* ]]; then
           echo "Testing Supabase URL connectivity..."
           curl -I "$SUPABASE_URL" || echo "Supabase URL not reachable"
         else
           echo "ERROR: SUPABASE_URL should start with https://"
+          exit 1
         fi
     
     - name: Run sync script
