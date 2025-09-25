@@ -378,7 +378,7 @@ export default function Home() {
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 bg-white rounded-lg p-1 flex items-center justify-center shadow-lg">
                     <Image
-                      src="/b4os-frontend/web-app-manifest-192x192.png"
+                      src="/web-app-manifest-192x192.png"
                       alt="B4OS Logo"
                       width={40}
                       height={40}

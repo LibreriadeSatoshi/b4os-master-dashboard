@@ -47,7 +47,7 @@ export default function ProtectedContent({ children }: ProtectedContentProps) {
           {/* Logo */}
           <div className="w-24 h-24 bg-white rounded-2xl p-3 flex items-center justify-center shadow-2xl mx-auto mb-8">
             <Image
-              src="/b4os-frontend/web-app-manifest-192x192.png"
+              src="/web-app-manifest-192x192.png"
               alt="B4OS Logo"
               width={72}
               height={72}
@@ -87,7 +87,7 @@ export default function ProtectedContent({ children }: ProtectedContentProps) {
           {/* Logo */}
           <div className="w-24 h-24 bg-white rounded-2xl p-3 flex items-center justify-center shadow-2xl mx-auto mb-8">
             <Image
-              src="/b4os-frontend/web-app-manifest-192x192.png"
+              src="/web-app-manifest-192x192.png"
               alt="B4OS Logo"
               width={72}
               height={72}
