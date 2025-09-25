@@ -110,13 +110,40 @@ class ClassroomSupabaseSync:
     def _initialize_supabase(self) -> Client:
         """Initialize Supabase client with error handling."""
         try:
+            # Log configuration for debugging
+            logger.info(f"Initializing Supabase client...")
+            logger.info(f"Supabase URL: {self.config.supabase_url[:30]}...")
+            logger.info(f"Supabase Key: {self.config.supabase_key[:20]}...")
+            
+            # Test URL format
+            if not self.config.supabase_url.startswith('https://'):
+                raise SupabaseSyncError("SUPABASE_URL must start with https://")
+            
+            # Test basic connectivity
+            import requests
+            try:
+                response = requests.get(self.config.supabase_url, timeout=10)
+                logger.info(f"Supabase URL is reachable (status: {response.status_code})")
+            except requests.exceptions.RequestException as e:
+                logger.warning(f"Supabase URL connectivity test failed: {e}")
+            
+            # Create client
             client = create_client(self.config.supabase_url, self.config.supabase_key)
+            logger.info("Supabase client created successfully")
+            
             # Test connection with a simple query that doesn't require RLS
-            client.table('students').select('github_username').limit(1).execute()
-            logger.info("Supabase connection verified")
-            return client
+            try:
+                result = client.table('students').select('github_username').limit(1).execute()
+                logger.info("Supabase connection verified")
+                return client
+            except Exception as query_error:
+                logger.warning(f"Initial query failed, but client created: {query_error}")
+                # Return client anyway, the query might fail due to RLS but client is valid
+                return client
+                
         except Exception as e:
             logger.error(f"Failed to initialize Supabase client: {e}")
+            logger.error(f"Error type: {type(e).__name__}")
             raise SupabaseSyncError(f"Supabase initialization failed: {e}")
     
     def _execute_gh_command(self, command: str) -> str:

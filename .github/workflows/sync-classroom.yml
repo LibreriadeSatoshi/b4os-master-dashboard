@@ -56,6 +56,30 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
     
+    - name: Test network connectivity
+      run: |
+        echo "Testing network connectivity..."
+        ping -c 3 8.8.8.8 || echo "Ping test failed"
+        nslookup google.com || echo "DNS test failed"
+        curl -I https://google.com || echo "HTTPS test failed"
+    
+    - name: Validate Supabase connection
+      env:
+        SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+      run: |
+        echo "Testing Supabase URL format..."
+        echo "SUPABASE_URL starts with: ${SUPABASE_URL:0:20}..."
+        echo "SUPABASE_KEY starts with: ${SUPABASE_KEY:0:20}..."
+        
+        # Test if URL is reachable
+        if [[ $SUPABASE_URL == https://* ]]; then
+          echo "Testing Supabase URL connectivity..."
+          curl -I "$SUPABASE_URL" || echo "Supabase URL not reachable"
+        else
+          echo "ERROR: SUPABASE_URL should start with https://"
+        fi
+    
     - name: Run sync script
       env:
         SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -63,7 +87,7 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         CLASSROOM_NAME: ${{ inputs.classroom_name || 'B4OS-Dev-2025' }}
         ASSIGNMENT_ID: ${{ inputs.assignment_id || '' }}
-        LOG_LEVEL: INFO
+        LOG_LEVEL: DEBUG
       run: |
         cd b4os-backend
         python sync-classroom.py
