@@ -752,29 +752,29 @@ export default function Home() {
                                     <GithubIcon className="w-3 h-3 flex-shrink-0" />
                                   </a>
                                   {/* Activity Status Indicator */}
-                                  {student.has_fork ? (
+                                  {student.total_score > 0 ? (
                                     <div 
                                       className="flex items-center gap-1 px-2 py-0.5 text-green-700 rounded-full text-xs font-medium cursor-help group relative"
-                                      title="Usuario Activo - Ha realizado fork de los assignments"
+                                      title="Usuario Activo - Tiene calificaciones en assignments"
                                     >
                                       <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                                       {/* Tooltip */}
                                       <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-4 py-3 bg-white text-gray-900 text-sm rounded-lg shadow-lg border border-gray-200 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50 min-w-48">
                                         <div className="text-sm font-medium text-gray-900">Usuario Activo</div>
-                                        <div className="text-xs text-gray-600 mt-1">Ha realizado fork de los assignments</div>
+                                        <div className="text-xs text-gray-600 mt-1">Tiene calificaciones en assignments</div>
                                         <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-white"></div>
                                       </div>
                                     </div>
                                   ) : (
                                     <div 
                                       className="flex items-center gap-1 px-2 py-0.5 text-gray-600 rounded-full text-xs font-medium cursor-help group relative"
-                                      title="Usuario Inactivo - No ha realizado fork de los assignments"
+                                      title="Usuario Inactivo - No tiene calificaciones en assignments"
                                     >
                                       <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
                                       {/* Tooltip */}
                                       <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-4 py-3 bg-white text-gray-900 text-sm rounded-lg shadow-lg border border-gray-200 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50 min-w-48">
                                         <div className="text-sm font-medium text-gray-900">Usuario Inactivo</div>
-                                        <div className="text-xs text-gray-600 mt-1">No ha realizado fork de los assignments</div>
+                                        <div className="text-xs text-gray-600 mt-1">No tiene calificaciones en assignments</div>
                                         <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-white"></div>
                                       </div>
                                     </div>
@@ -1048,31 +1048,31 @@ export default function Home() {
                                        {student.github_username}
                                      </a>
                                      {/* Activity Status Indicator - Mobile */}
-                                     {student.has_fork ? (
+                                     {student.total_score > 0 ? (
                                        <div 
                                          className="flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-medium cursor-help group relative"
-                                         title="Usuario Activo - Ha realizado fork de los assignments"
+                                         title="Usuario Activo - Tiene calificaciones en assignments"
                                        >
                                          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                                          Activo
                                          {/* Tooltip */}
                                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-4 py-3 bg-white text-gray-900 text-sm rounded-lg shadow-lg border border-gray-200 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50 min-w-48">
                                            <div className="text-sm font-medium text-gray-900">Usuario Activo</div>
-                                           <div className="text-xs text-gray-600 mt-1">Ha realizado fork de los assignments</div>
+                                           <div className="text-xs text-gray-600 mt-1">Tiene calificaciones en assignments</div>
                                            <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-white"></div>
                                          </div>
                                        </div>
                                      ) : (
                                        <div 
                                          className="flex items-center gap-1 px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full text-xs font-medium cursor-help group relative"
-                                         title="Usuario Inactivo - No ha realizado fork de los assignments"
+                                         title="Usuario Inactivo - No tiene calificaciones en assignments"
                                        >
                                          <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
                                          Inactivo
                                          {/* Tooltip */}
                                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-4 py-3 bg-white text-gray-900 text-sm rounded-lg shadow-lg border border-gray-200 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50 min-w-48">
                                            <div className="text-sm font-medium text-gray-900">Usuario Inactivo</div>
-                                           <div className="text-xs text-gray-600 mt-1">No ha realizado fork de los assignments</div>
+                                           <div className="text-xs text-gray-600 mt-1">No tiene calificaciones en assignments</div>
                                            <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-white"></div>
                                          </div>
                                        </div>
