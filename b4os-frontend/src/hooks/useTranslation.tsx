@@ -342,16 +342,19 @@ interface TranslationContextType {
 const TranslationContext = createContext<TranslationContextType | undefined>(undefined)
 
 // Función para obtener traducciones anidadas
-function getNestedTranslation(obj: any, path: string): string {
+function getNestedTranslation(obj: Record<string, unknown>, path: string): string {
   return path.split('.').reduce((current, key) => {
-    return current && current[key] !== undefined ? current[key] : path
-  }, obj)
+    if (current && typeof current === 'object' && current !== null && key in current) {
+      return (current as Record<string, unknown>)[key]
+    }
+    return path
+  }, obj as unknown) as string
 }
 
 // Función para formatear strings con variables
-function formatString(template: string, variables: Record<string, any> = {}): string {
+function formatString(template: string, variables: Record<string, string | number> = {}): string {
   return template.replace(/\{(\w+)\}/g, (match, key) => {
-    return variables[key] !== undefined ? variables[key] : match
+    return variables[key] !== undefined ? String(variables[key]) : match
   })
 }
 
@@ -379,7 +382,7 @@ export function TranslationProvider({ children }: { children: ReactNode }) {
   }, [language])
 
   // Función de traducción
-  const t = (key: string, variables?: Record<string, any>): string => {
+  const t = (key: string, variables?: Record<string, string | number>): string => {
     if (!translations) return key
     
     const translation = getNestedTranslation(translations, key)
