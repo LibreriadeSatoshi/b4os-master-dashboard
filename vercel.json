@@ -1,6 +1,15 @@
 {
   "version": 2,
-  "buildCommand": "npm run build",
-  "installCommand": "npm install && npm install -g lingo.dev",
-  "outputDirectory": "b4os-frontend/.next"
+  "builds": [
+    {
+      "src": "b4os-frontend/package.json",
+      "use": "@vercel/next"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "b4os-frontend/$1"
+    }
+  ]
 }
