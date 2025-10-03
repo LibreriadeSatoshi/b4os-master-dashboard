@@ -71,7 +71,7 @@ dist
 
 # Gatsby files
 .cache/
-public
+# public (commented out - Next.js needs public directory in git)
 
 # Storybook build outputs
 .out
@@ -200,5 +200,4 @@ tmp/
 temp/
 i18n.cache
 
-# Generated translation files
-b4os-frontend/public/i18n/
+# Generated translation files (keeping public/i18n for deployment)

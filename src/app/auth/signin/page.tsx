@@ -3,6 +3,7 @@
 import { signIn, getProviders } from 'next-auth/react'
 import { useEffect, useState } from 'react'
 import { GithubIcon } from 'lucide-react'
+import { useTranslation } from '@/hooks/useTranslation'
 
 interface Provider {
   id: string
@@ -11,6 +12,7 @@ interface Provider {
 
 export default function SignIn() {
   const [providers, setProviders] = useState<Record<string, Provider> | null>(null)
+  const { t } = useTranslation()
 
   useEffect(() => {
     const setAuthProviders = async () => {
@@ -35,8 +37,8 @@ export default function SignIn() {
                 className="w-full h-full object-contain"
               />
             </div>
-            <h1 className="text-2xl font-bold text-white mb-2">B4OS Challenges</h1>
-            <p className="text-gray-300">Sign in to start your Bitcoin development journey</p>
+            <h1 className="text-2xl font-bold text-white mb-2">{t('auth.title')}</h1>
+            <p className="text-gray-300">{t('auth.subtitle')}</p>
           </div>
 
           {/* GitHub Sign In */}
@@ -49,7 +51,7 @@ export default function SignIn() {
                     className="w-full flex items-center justify-center gap-3 bg-gray-900 hover:bg-gray-800 text-white px-6 py-3 rounded-lg transition-colors border border-gray-700"
                   >
                     <GithubIcon className="w-5 h-5" />
-                    Continue with {provider.name}
+                    {t('common.continue_with')} {provider.name}
                   </button>
                 </div>
               ))}
@@ -59,7 +61,7 @@ export default function SignIn() {
           {/* Info */}
           <div className="mt-8 text-center">
             <p className="text-sm text-gray-400">
-              By signing in, you agree to participate in the B4OS technical assessment program.
+              {t('common.by_signing_in')}
             </p>
           </div>
         </div>
