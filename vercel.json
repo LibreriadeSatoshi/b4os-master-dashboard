@@ -1,3 +1,5 @@
 {
-  "version": 2
+  "buildCommand": "cd b4os-frontend && npm run build",
+  "devCommand": "cd b4os-frontend && npm run dev",
+  "installCommand": "cd b4os-frontend && npm install"
 }
