@@ -81,14 +81,13 @@ export default function LanguageSelector() {
                   setLanguage(lang.code as 'es' | 'en')
                   setIsOpen(false)
                 }}
-                className={`w-full flex items-center gap-3 px-4 py-3 text-sm transition-colors ${
+                className={`w-full flex items-center justify-between px-4 py-3 text-sm transition-colors ${
                   language === lang.code
                     ? 'bg-orange-50 text-orange-700'
                     : 'text-gray-700 hover:bg-gray-50'
                 }`}
               >
-                <span className="text-lg">{lang.name}</span>
-                <span className="flex-1 text-left font-medium">{lang.name}</span>
+                <span className="font-medium">{lang.name}</span>
                 {language === lang.code && (
                   <Check className="w-4 h-4 text-orange-600" />
                 )}
