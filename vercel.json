@@ -6,10 +6,5 @@
       "use": "@vercel/next"
     }
   ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "b4os-frontend/$1"
-    }
-  ]
+  "outputDirectory": "b4os-frontend/.next"
 }
