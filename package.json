@@ -3,6 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
+    "build:i18n": "lingo.dev run || cp i18n/es.json b4os-frontend/public/i18n/es.json && cp i18n/en.json b4os-frontend/public/i18n/en.json",
+    "prebuild": "npm run build:i18n",
     "build": "cd b4os-frontend && npm run build",
     "dev": "cd b4os-frontend && npm run dev",
     "start": "cd b4os-frontend && npm run start"

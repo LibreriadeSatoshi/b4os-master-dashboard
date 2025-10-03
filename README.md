@@ -159,5 +159,4 @@ Este proyecto está bajo la Licencia MIT. Ver el archivo `LICENSE` para más det
 Para soporte, contacta a [kleysc](https://github.com/kleysc) o abre un issue en este repositorio.
 
 ---
-
 **B4OS Master Dashboard** - Monitoreo inteligente para el programa Bitcoin 4 Open Source

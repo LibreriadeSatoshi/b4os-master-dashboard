@@ -198,3 +198,7 @@ node_modules/
 # Temporary folders
 tmp/
 temp/
+i18n.cache
+
+# Generated translation files
+b4os-frontend/public/i18n/
