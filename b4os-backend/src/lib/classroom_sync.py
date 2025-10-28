@@ -505,9 +505,12 @@ class ClassroomSupabaseSync:
                 total_score = sum(grade['points_awarded'] for grade in student_grades if grade['points_awarded'])
                 total_possible = sum(assignment_points.get(grade['assignment_name'], 0) for grade in student_grades)
                 percentage = round((total_score / total_possible) * 100) if total_possible > 0 else 0
-                
-                # Count unique assignments completed (not just grade records)
-                unique_assignments = set(grade['assignment_name'] for grade in student_grades)
+
+                # Count unique assignments that have been accepted (have fork_created_at)
+                unique_assignments = set(
+                    grade['assignment_name'] for grade in student_grades
+                    if grade.get('fork_created_at') is not None
+                )
                 assignments_completed = len(unique_assignments)
                 
                 # Calculate resolution time only if student has a fork
