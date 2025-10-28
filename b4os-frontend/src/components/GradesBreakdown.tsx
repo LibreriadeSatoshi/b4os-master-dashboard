@@ -48,9 +48,12 @@ export default function GradesBreakdown({ username, isExpanded, selectedAssignme
     try {
       const breakdown = await SupabaseService.getStudentGradesBreakdown(username)
 
+      // Filter only assignments that have been accepted (have fork_created_at)
+      const acceptedAssignments = breakdown.filter(grade => grade.fork_created_at !== null)
+
       const filteredBreakdown = selectedAssignment && selectedAssignment !== 'all'
-        ? breakdown.filter(grade => grade.assignment_name === selectedAssignment)
-        : breakdown
+        ? acceptedAssignments.filter(grade => grade.assignment_name === selectedAssignment)
+        : acceptedAssignments
 
       // Sort by fork_created_at (oldest first) for chronological order
       const sortedBreakdown = filteredBreakdown.sort((a, b) => {
@@ -223,16 +226,29 @@ export default function GradesBreakdown({ username, isExpanded, selectedAssignme
                     <h5 className="font-medium text-gray-900 text-sm truncate leading-tight">
                       {grade.assignment_name}
                     </h5>
-                    {(grade.fork_created_at || grade.fork_updated_at) && (
-                      <div className="flex items-center gap-1.5 mt-1 text-[11px] text-gray-600 leading-tight">
-                        <Calendar className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                        <span className="whitespace-nowrap">
-                          {grade.fork_created_at && formatDateShort(grade.fork_created_at)}
-                          {grade.fork_created_at && grade.fork_updated_at && ' – '}
-                          {grade.fork_updated_at && formatDateShort(grade.fork_updated_at)}
-                        </span>
-                      </div>
-                    )}
+                    {(grade.fork_created_at || grade.fork_updated_at) && (() => {
+                      const createdDate = grade.fork_created_at ? new Date(grade.fork_created_at) : null
+                      const updatedDate = grade.fork_updated_at ? new Date(grade.fork_updated_at) : null
+                      const isSameDay = createdDate && updatedDate &&
+                        createdDate.toDateString() === updatedDate.toDateString()
+
+                      return (
+                        <div className="flex items-center gap-1.5 mt-1 text-[11px] text-gray-600 leading-tight">
+                          <Calendar className="w-3 h-3 text-gray-400 flex-shrink-0" />
+                          <span className="whitespace-nowrap">
+                            {isSameDay ? (
+                              <>Iniciado: {formatDateShort(grade.fork_created_at)}</>
+                            ) : (
+                              <>
+                                {grade.fork_created_at && formatDateShort(grade.fork_created_at)}
+                                {grade.fork_created_at && grade.fork_updated_at && ' – '}
+                                {grade.fork_updated_at && formatDateShort(grade.fork_updated_at)}
+                              </>
+                            )}
+                          </span>
+                        </div>
+                      )
+                    })()}
                   </div>
                   <div className="buttons-container flex gap-1 flex-shrink-0">
                     {onOpenActions && (
