@@ -62,7 +62,7 @@ export default function Home() {
     new Set()
   );
   const [assignments, setAssignments] = useState<Assignment[]>([]);
-  const [allGrades, setAllGrades] = useState<Array<{ github_username: string; assignment_name: string; points_awarded: number }>>([]);
+  const [allGrades, setAllGrades] = useState<Array<{ github_username: string; assignment_name: string; points_awarded: number | null }>>([]);
   const [filters, setFilters] = useState<FilterState | null>(null);
   const [filteredStudents, setFilteredStudents] = useState<
     Array<{
@@ -580,7 +580,7 @@ export default function Home() {
         <section className="container mx-auto px-6 py-4">
           <DashboardFilters
             onFiltersChange={handleFiltersChange}
-            totalStudents={leaderboard.length}
+            totalStudents={stats.totalStudents || leaderboard.length}
             filteredCount={filteredStudents.length}
           />
         </section>

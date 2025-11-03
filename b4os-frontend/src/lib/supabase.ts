@@ -189,6 +189,11 @@ export class SupabaseService {
     ranking_position?: number
     has_fork?: boolean
   }>> {
+    // Get all students first to ensure we include everyone
+    const { data: allStudents, error: studentsError } = await supabase
+      .from('students')
+      .select('github_username')
+
     // Try to get from admin_leaderboard first (time-based ranking)
     const { data: adminData, error: adminError } = await supabase
       .from('admin_leaderboard')
@@ -197,18 +202,43 @@ export class SupabaseService {
       .order('ranking_position')
     
     if (!adminError && adminData && adminData.length > 0) {
-      return adminData.map(student => ({
-        github_username: student.github_username,
-        total_score: student.total_score,
-        total_possible: student.total_possible,
-        percentage: student.percentage,
-        assignments_completed: student.assignments_completed,
-        fork_created_at: student.fork_created_at,
-        last_updated_at: student.last_updated_at,
-        resolution_time_hours: student.resolution_time_hours,
-        ranking_position: student.ranking_position,
-        has_fork: student.has_fork
-      }))
+      // Create a map of students from admin_leaderboard
+      const leaderboardMap = new Map(
+        adminData.map(student => [student.github_username, {
+          github_username: student.github_username,
+          total_score: student.total_score,
+          total_possible: student.total_possible,
+          percentage: student.percentage,
+          assignments_completed: student.assignments_completed,
+          fork_created_at: student.fork_created_at,
+          last_updated_at: student.last_updated_at,
+          resolution_time_hours: student.resolution_time_hours,
+          ranking_position: student.ranking_position,
+          has_fork: student.has_fork
+        }])
+      )
+
+      // Add any students who are not in the leaderboard but exist in students table
+      if (!studentsError && allStudents) {
+        allStudents.forEach(student => {
+          if (!leaderboardMap.has(student.github_username)) {
+            leaderboardMap.set(student.github_username, {
+              github_username: student.github_username,
+              total_score: 0,
+              total_possible: 0,
+              percentage: 0,
+              assignments_completed: 0,
+              fork_created_at: undefined,
+              last_updated_at: undefined,
+              resolution_time_hours: undefined,
+              ranking_position: undefined,
+              has_fork: false
+            })
+          }
+        })
+      }
+
+      return Array.from(leaderboardMap.values())
     }
     
     // Fallback to consolidated_grades if admin_leaderboard is not available
@@ -282,6 +312,22 @@ export class SupabaseService {
         : 0,
       assignments_completed: acceptedAssignments.get(student.github_username)?.size || 0
     }))
+
+    // Add any students who are not in the leaderboard but exist in students table
+    if (!studentsError && allStudents) {
+      const existingUsernames = new Set(leaderboard.map(s => s.github_username))
+      allStudents.forEach(student => {
+        if (!existingUsernames.has(student.github_username)) {
+          leaderboard.push({
+            github_username: student.github_username,
+            total_score: 0,
+            total_possible: 0,
+            percentage: 0,
+            assignments_completed: 0
+          })
+        }
+      })
+    }
     
     // Sort by percentage descending (fallback behavior)
     return leaderboard.sort((a, b) => b.percentage - a.percentage)
