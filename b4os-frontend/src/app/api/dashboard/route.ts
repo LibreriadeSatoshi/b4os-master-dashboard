@@ -74,9 +74,15 @@ export async function GET() {
       )
     }
 
-    const [assignmentsData, statsData, reviewersData] = results.map(r => 
-      r.status === 'fulfilled' ? r.value : []
-    )
+    const [assignmentsResult, statsResult, reviewersResult] = results
+    const assignmentsData = assignmentsResult.status === 'fulfilled' ? assignmentsResult.value : []
+    const statsData = statsResult.status === 'fulfilled' ? statsResult.value : null
+    const reviewersData = reviewersResult.status === 'fulfilled' ? reviewersResult.value : new Map()
+
+    // Convert Map to object if needed
+    const reviewersGrouped = reviewersData instanceof Map 
+      ? Object.fromEntries(reviewersData) 
+      : {}
 
     return NextResponse.json({
       leaderboard: leaderboard || [],
@@ -88,7 +94,7 @@ export async function GET() {
         avgScore: 0,
         completionRate: 0
       },
-      reviewersGrouped: reviewersData ? Object.fromEntries(reviewersData) : {}
+      reviewersGrouped
     })
   } catch (error) {
     console.error('Error fetching dashboard data:', error)
@@ -147,6 +153,7 @@ async function getLeaderboard() {
               total_possible: 0,
               percentage: 0,
               assignments_completed: 0,
+              resolution_time_hours: undefined,
               has_fork: false
             })
           }
@@ -214,7 +221,9 @@ async function getLeaderboard() {
       percentage: student.total_possible > 0
         ? Math.round((student.total_score / student.total_possible) * 100)
         : 0,
-      assignments_completed: acceptedAssignments.get(student.github_username)?.size || 0
+      assignments_completed: acceptedAssignments.get(student.github_username)?.size || 0,
+      resolution_time_hours: undefined,
+      has_fork: false
     }))
 
     if (allStudents) {
@@ -226,7 +235,9 @@ async function getLeaderboard() {
             total_score: 0,
             total_possible: 0,
             percentage: 0,
-            assignments_completed: 0
+            assignments_completed: 0,
+            resolution_time_hours: undefined,
+            has_fork: false
           })
         }
       })
