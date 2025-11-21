@@ -8,6 +8,7 @@ interface DashboardFiltersProps {
   onFiltersChange: (filters: FilterState) => void
   totalStudents: number
   filteredCount: number
+  assignments: Array<{ name: string; points_available: number | null }>
 }
 
 export interface FilterState {
@@ -42,25 +43,10 @@ const defaultFilters: FilterState = {
   }
 }
 
-export default function DashboardFilters({ onFiltersChange, totalStudents, filteredCount }: DashboardFiltersProps) {
+export default function DashboardFilters({ onFiltersChange, totalStudents, filteredCount, assignments }: DashboardFiltersProps) {
   const { t } = useTranslation()
   const [filters, setFilters] = useState<FilterState>(defaultFilters)
   const [isExpanded, setIsExpanded] = useState(false)
-  const [assignments, setAssignments] = useState<Array<{ name: string; points_available: number | null }>>([])
-
-  // Load assignments on mount
-  useEffect(() => {
-    const loadAssignments = async () => {
-      try {
-        const { SupabaseService } = await import('@/lib/supabase')
-        const data = await SupabaseService.getAssignments()
-        setAssignments(data)
-      } catch (error) {
-        console.error('Error loading assignments:', error)
-      }
-    }
-    loadAssignments()
-  }, [])
 
   useEffect(() => {
     onFiltersChange(filters)
@@ -154,16 +140,16 @@ export default function DashboardFilters({ onFiltersChange, totalStudents, filte
 
           {/* Filtro por Assignment */}
           <div>
-            <h4 className="font-medium text-gray-900 mb-3">Filtrar por Challenge</h4>
+            <h4 className="font-medium text-gray-900 mb-3">{t('filters.by_assignment')}</h4>
             <select
               value={filters.selectedAssignment}
               onChange={(e) => handleAssignmentChange(e.target.value)}
               className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-gray-800 bg-white"
             >
-              <option value="all">Todos los challenges</option>
+              <option value="all">{t('filters.all_assignments')}</option>
               {assignments.map((assignment) => (
                 <option key={assignment.name} value={assignment.name}>
-                  {assignment.name} ({assignment.points_available || 0} pts)
+                  {assignment.name.replace(/-/g, ' ').replace(/_/g, ' ')}
                 </option>
               ))}
             </select>

@@ -33,6 +33,7 @@ export interface DashboardData {
     id: number
     name: string
     points_available: number | null
+    created_at: string
     updated_at: string
   }>
   stats: {
@@ -224,10 +225,11 @@ async function getAssignments() {
     const { data, error } = await supabase
       .from('assignments')
       .select('id, name, points_available, updated_at')
-      .order('name')
+      .order('id', { ascending: true })
 
     if (error) throw error
-    return data || []
+    // Add created_at as empty string for type compatibility
+    return (data || []).map(a => ({ ...a, created_at: '' }))
   } catch (error) {
     console.error('Error in getAssignments:', error)
     return []
