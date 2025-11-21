@@ -12,6 +12,7 @@ interface GradesBreakdownProps {
   onOpenActions?: (username: string, assignmentName: string) => void
   onOpenReview?: (username: string, assignmentName: string) => void
   onDataUpdate?: () => void
+  refreshTrigger?: number  // Increment to force refresh of review data
 }
 
 interface GradeBreakdown {
@@ -23,7 +24,7 @@ interface GradeBreakdown {
   fork_updated_at?: string | null
 }
 
-export default function GradesBreakdown({ username, isExpanded, selectedAssignment, onOpenActions, onOpenReview }: GradesBreakdownProps) {
+export default function GradesBreakdown({ username, isExpanded, selectedAssignment, onOpenActions, onOpenReview, refreshTrigger }: GradesBreakdownProps) {
   const { t } = useTranslation()
   const [grades, setGrades] = useState<GradeBreakdown[]>([])
   const [reviewData, setReviewData] = useState<{[key: string]: {reviewers: unknown[], comments: unknown[]}}>({})
@@ -36,11 +37,12 @@ export default function GradesBreakdown({ username, isExpanded, selectedAssignme
     }
   }, [isExpanded, username, selectedAssignment])
 
+  // Reload review data when refreshTrigger changes (after reviewer assignment/update)
   useEffect(() => {
-    if (isExpanded && grades.length > 0) {
-      loadReviewData()
+    if (isExpanded && grades.length > 0 && refreshTrigger !== undefined && refreshTrigger > 0) {
+      loadReviewDataForGrades(grades)
     }
-  }, [isExpanded, grades, username])
+  }, [refreshTrigger])
 
   const loadGradesBreakdown = async () => {
     setIsLoading(true)
@@ -64,6 +66,9 @@ export default function GradesBreakdown({ username, isExpanded, selectedAssignme
       })
 
       setGrades(sortedBreakdown)
+
+      // Load review data for these assignments
+      await loadReviewDataForGrades(sortedBreakdown)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error loading grades')
     } finally {
@@ -71,20 +76,20 @@ export default function GradesBreakdown({ username, isExpanded, selectedAssignme
     }
   }
 
-  const loadReviewData = async () => {
+  const loadReviewDataForGrades = async (gradesData: GradeBreakdown[]) => {
     try {
       const reviewers = await SupabaseService.getStudentReviewersByStudent(username)
       const comments = await SupabaseService.getReviewComments(username)
-      
+
       const reviewDataMap: {[key: string]: {reviewers: unknown[], comments: unknown[]}} = {}
-      
-      grades.forEach(grade => {
+
+      gradesData.forEach(grade => {
         reviewDataMap[grade.assignment_name] = {
           reviewers: reviewers.filter(r => r.assignment_name === grade.assignment_name),
           comments: comments.filter(c => c.assignment_name === grade.assignment_name)
         }
       })
-      
+
       setReviewData(reviewDataMap)
     } catch (err) {
       console.error('Error loading review data:', err)
