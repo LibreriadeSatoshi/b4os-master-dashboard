@@ -95,6 +95,8 @@
     "search_placeholder": "Escribir nombre de usuario...",
     "search_label": "Buscar estudiante por nombre",
     "sort_by": "Ordenar por:",
+    "by_assignment": "Filtrar por Asignación",
+    "all_assignments": "Todas las asignaciones",
     "filter_by_status": "Filtrar por estado de progreso",
     "show_filters": "Mostrar Filtros",
     "hide_filters": "Ocultar Filtros",
