@@ -94,6 +94,8 @@
     "title": "Filtros Inteligentes",
     "search_placeholder": "Escribir nombre de usuario...",
     "search_label": "Buscar estudiante por nombre",
+    "by_assignment": "Filtrar por Asignación",
+    "all_assignments": "Todas las asignaciones",
     "sort_by": "Ordenar por:",
     "filter_by_status": "Filtrar por estado de progreso",
     "show_filters": "Mostrar Filtros",

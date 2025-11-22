@@ -94,6 +94,8 @@
     "title": "Smart Filters",
     "search_placeholder": "Type username...",
     "search_label": "Search student by name",
+    "by_assignment": "Filter by Assignment",
+    "all_assignments": "All assignments",
     "sort_by": "Sort by:",
     "filter_by_status": "Filter by progress status",
     "show_filters": "Show Filters",

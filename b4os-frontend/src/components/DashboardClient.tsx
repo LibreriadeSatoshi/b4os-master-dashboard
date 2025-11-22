@@ -49,6 +49,7 @@ export default function DashboardClient({ initialData, assignments }: DashboardC
   const [showAssignmentSelector, setShowAssignmentSelector] = useState(false)
   const [selectedStudentForAssignment, setSelectedStudentForAssignment] = useState<string | null>(null)
   const [sortConfig, setSortConfig] = useState<{ key: string | null; direction: "asc" | "desc" }>({ key: null, direction: "asc" })
+  const [refreshTrigger, setRefreshTrigger] = useState(0)
   const [reviewStatuses, setReviewStatuses] = useState<Map<string, {
     hasReviewer: boolean
     status: 'pending' | 'in_progress' | 'completed' | null
@@ -189,6 +190,20 @@ export default function DashboardClient({ initialData, assignments }: DashboardC
           const scoreB = reviewStatusB?.averageQualityScore ?? 0
           comparison = scoreA - scoreB
           break
+        case "review_status":
+          const statusA = reviewStatuses.get(a.github_username)
+          const statusB = reviewStatuses.get(b.github_username)
+          // Priority: completed > in_progress > pending > no reviewer
+          const statusPriority = { completed: 3, in_progress: 2, pending: 1 }
+          const priorityA = statusA?.hasReviewer ? (statusPriority[statusA.status || 'pending'] || 0) : -1
+          const priorityB = statusB?.hasReviewer ? (statusPriority[statusB.status || 'pending'] || 0) : -1
+          if (priorityA !== priorityB) {
+            comparison = priorityA - priorityB
+          } else {
+            // If same status, sort by reviewer count
+            comparison = (statusA?.reviewerCount ?? 0) - (statusB?.reviewerCount ?? 0)
+          }
+          break
         default: comparison = a.github_username.localeCompare(b.github_username)
       }
 
@@ -273,6 +288,8 @@ export default function DashboardClient({ initialData, assignments }: DashboardC
         setStats(data.stats || initialData.stats)
         processReviewStatuses(data.leaderboard || [], new Map(Object.entries(data.reviewersGrouped || {})))
       }
+      // Trigger refresh for GradesBreakdown components
+      setRefreshTrigger(prev => prev + 1)
     } catch (error) {
       console.warn('Review data update failed:', error)
     }
@@ -322,6 +339,7 @@ export default function DashboardClient({ initialData, assignments }: DashboardC
           onFiltersChange={handleFiltersChange}
           totalStudents={stats.totalStudents || leaderboard.length}
           filteredCount={filteredStudents.length}
+          assignments={assignments}
         />
       </section>
 
@@ -337,14 +355,12 @@ export default function DashboardClient({ initialData, assignments }: DashboardC
             </div>
             <div className="flex items-center gap-2 px-4 py-2 bg-orange-100 text-orange-700 rounded-full text-sm font-medium">
               <UsersIcon className="w-4 h-4" />
-              {filteredStudents.length > 0
-                ? filteredStudents.length
-                : leaderboard.length}{" "}
+              {filters !== null ? filteredStudents.length : leaderboard.length}{" "}
               {t('leaderboard.columns.students')}
             </div>
           </div>
 
-          {(filteredStudents.length > 0 ? filteredStudents : leaderboard).length === 0 ? (
+          {(filters !== null ? filteredStudents : leaderboard).length === 0 ? (
             <div className="text-center py-12">
               <TrophyIcon className="w-12 h-12 text-gray-300 mx-auto mb-4" />
               <p className="text-gray-600">{t('common.no_data')}</p>
@@ -440,10 +456,7 @@ export default function DashboardClient({ initialData, assignments }: DashboardC
                 </div>
 
                 <div className="space-y-1">
-                  {(filteredStudents.length > 0
-                    ? filteredStudents
-                    : leaderboard
-                  ).map((student, index) => {
+                  {(filters !== null ? filteredStudents : leaderboard).map((student, index) => {
                     const colors = [
                       "bg-pink-500",
                       "bg-blue-500",
@@ -650,16 +663,6 @@ export default function DashboardClient({ initialData, assignments }: DashboardC
                                 )
                               }
 
-                              if (reviewStatus.latestReviewer) {
-                                return (
-                                  <div className="flex flex-col items-center gap-1">
-                                    <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
-                                      {reviewStatus.latestReviewer}
-                                    </span>
-                                  </div>
-                                )
-                              }
-
                               const statusColors = {
                                 pending: "bg-yellow-100 text-yellow-800",
                                 in_progress: "bg-blue-100 text-blue-800",
@@ -672,19 +675,20 @@ export default function DashboardClient({ initialData, assignments }: DashboardC
                                 completed: <CheckCircle2 className="w-3 h-3" />
                               }
 
+                              const currentStatus = reviewStatus.status || 'pending'
+
                               return (
                                 <div className="flex flex-col items-center gap-1">
-                                  <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
+                                  {/* Reviewer name */}
+                                  <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium truncate max-w-24">
                                     {reviewStatus.latestReviewer}
                                   </span>
-                                  <span className={`px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${statusColors[reviewStatus.status || 'pending']}`}>
-                                    {statusIcons[reviewStatus.status || 'pending']} {reviewStatus.status || 'pending'}
+                                  {/* Status indicator */}
+                                  <span className={`px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${statusColors[currentStatus]}`}>
+                                    {statusIcons[currentStatus]}
+                                    <span className="hidden xl:inline">{t(`review_system.status.${currentStatus}`)}</span>
                                   </span>
-                                  {reviewStatus.latestAssignment && (
-                                    <span className="text-xs text-gray-500 truncate max-w-20">
-                                      {reviewStatus.latestAssignment}
-                                    </span>
-                                  )}
+                                  {/* Multiple reviewers indicator */}
                                   {reviewStatus.reviewerCount > 1 && (
                                     <span className="text-xs text-gray-500">
                                       +{reviewStatus.reviewerCount - 1} {t('leaderboard.more_reviewers')}
@@ -814,6 +818,7 @@ export default function DashboardClient({ initialData, assignments }: DashboardC
                           onOpenActions={openActionsModal}
                           onOpenReview={openReviewModal}
                           onDataUpdate={handleReviewDataUpdate}
+                          refreshTrigger={refreshTrigger}
                         />
                       </div>
                     )

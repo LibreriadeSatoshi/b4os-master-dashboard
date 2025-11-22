@@ -27,6 +27,7 @@ export interface Assignment {
   id: number
   name: string
   points_available: number | null
+  created_at: string
   updated_at: string
 }
 
