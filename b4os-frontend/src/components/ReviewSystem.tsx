@@ -4,17 +4,21 @@ import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { SupabaseService, type StudentReviewer, type ReviewComment } from "@/lib/supabase";
 import { useTranslation } from '@/hooks/useTranslation';
-import { 
-  UserCheck, 
-  MessageSquare, 
-  Plus, 
-  CheckCircle, 
-  Clock, 
-  AlertCircle,
+import ReviewChecklist from "./ReviewChecklist";
+import {
+  type CriterionEvaluation,
+  calculateWeightedScore,
+  isReviewComplete
+} from "@/data/reviewCriteria";
+import {
+  UserCheck,
+  MessageSquare,
+  Plus,
   ExternalLink,
   User,
   MoreVertical,
-  Trash2
+  Trash2,
+  ClipboardList
 } from "lucide-react";
 
 interface ReviewSystemProps {
@@ -48,8 +52,10 @@ export default function ReviewSystem({
   const [newComment, setNewComment] = useState("");
   const [commentType, setCommentType] = useState<"general" | "code_quality" | "functionality" | "documentation" | "suggestion">("general");
   const [commentPriority, setCommentPriority] = useState<"low" | "medium" | "high">("medium");
-  // const [qualityScore, setQualityScore] = useState<number | null>(null);
   const [openMenuId, setOpenMenuId] = useState<number | null>(null);
+  // Evaluaciones de criterios por revisor (reviewerId -> evaluations)
+  const [criteriaEvaluations, setCriteriaEvaluations] = useState<Map<number, CriterionEvaluation[]>>(new Map());
+  const [activeReviewerId, setActiveReviewerId] = useState<number | null>(null);
 
   useEffect(() => {
     loadData();
@@ -57,7 +63,7 @@ export default function ReviewSystem({
 
   // Close menu when clicking outside
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
+    const handleClickOutside = () => {
       if (openMenuId !== null) {
         setOpenMenuId(null);
       }
@@ -168,23 +174,55 @@ export default function ReviewSystem({
     }
   };
 
-  const handleStatusUpdate = async (reviewerId: number, status: "pending" | "in_progress" | "completed") => {
-    const result = await SupabaseService.updateReviewerStatus(reviewerId, status);
-    if (result.success) {
+  // Handle criterion evaluation change
+  const handleEvaluationChange = (reviewerId: number, evaluation: CriterionEvaluation) => {
+    setCriteriaEvaluations(prev => {
+      const newMap = new Map(prev);
+      const existing = newMap.get(reviewerId) || [];
+      const filtered = existing.filter(e => e.criterionId !== evaluation.criterionId);
+      newMap.set(reviewerId, [...filtered, evaluation]);
+      return newMap;
+    });
+  };
+
+  // Handle review completion with calculated score
+  const handleCompleteReview = async (reviewerId: number) => {
+    const evaluations = criteriaEvaluations.get(reviewerId) || [];
+
+    if (!isReviewComplete(evaluations)) {
+      alert("Por favor evalúa todos los criterios antes de completar la revisión");
+      return;
+    }
+
+    // Calculate final score from criteria
+    const finalScore = calculateWeightedScore(evaluations);
+
+    // Update score first
+    const scoreResult = await SupabaseService.updateCodeQualityScore(reviewerId, Math.round(finalScore));
+    if (!scoreResult.success) {
+      alert(`Error actualizando score: ${scoreResult.error}`);
+      return;
+    }
+
+    // Then update status to completed
+    const statusResult = await SupabaseService.updateReviewerStatus(reviewerId, "completed");
+    if (statusResult.success) {
+      setActiveReviewerId(null);
       await loadData();
       if (onDataUpdate) {
         setTimeout(onDataUpdate, 100);
       }
     } else {
-      alert(`Error: ${result.error}`);
+      alert(`Error: ${statusResult.error}`);
     }
   };
 
-  const handleQualityScoreUpdate = async (reviewerId: number, score: number) => {
-    const result = await SupabaseService.updateCodeQualityScore(reviewerId, score);
+  // Start review and expand checklist
+  const handleStartReview = async (reviewerId: number) => {
+    const result = await SupabaseService.updateReviewerStatus(reviewerId, "in_progress");
     if (result.success) {
+      setActiveReviewerId(reviewerId);
       await loadData();
-      // Give a small delay to ensure DB changes are reflected
       if (onDataUpdate) {
         setTimeout(onDataUpdate, 100);
       }
@@ -400,100 +438,143 @@ export default function ReviewSystem({
               <p className="text-sm">{t('review_system.no_reviewers')}</p>
             </div>
           ) : (
-            reviewers.map((reviewer) => (
-              <div key={reviewer.id} className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow relative">
-                {/* Options Menu - Top Right */}
-                <div className="absolute top-3 right-3">
-                  <button
-                    onClick={() => setOpenMenuId(openMenuId === reviewer.id ? null : reviewer.id)}
-                    className="w-6 h-6 bg-gray-50 hover:bg-gray-100 text-gray-600 hover:text-gray-700 rounded-full flex items-center justify-center transition-colors"
-                    title="Opciones del revisor"
-                  >
-                    <MoreVertical className="w-4 h-4" />
-                  </button>
-                  
-                  {/* Dropdown Menu */}
-                  {openMenuId === reviewer.id && (
-                    <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-10 min-w-[160px]">
-                      <button
-                        onClick={() => {
-                          handleRemoveReviewer(reviewer.id);
-                          setOpenMenuId(null);
-                        }}
-                        className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                        {t('review_system.actions.remove_reviewer')}
-                      </button>
-                    </div>
-                  )}
-                </div>
-                
-                <div className="flex items-center justify-between pr-8">
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 bg-blue-50 rounded-full flex items-center justify-center flex-shrink-0">
-                      <User className="w-5 h-5 text-blue-600" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <h5 className="font-semibold text-gray-900 truncate">{reviewer.reviewer_username}</h5>
-                      <p className="text-sm text-gray-500">
-                        {t('review_system.assigned_on').replace('{date}', new Date(reviewer.assigned_at).toLocaleDateString())}
-                      </p>
-                    </div>
+            reviewers.map((reviewer) => {
+              const isActive = activeReviewerId === reviewer.id || reviewer.status === "in_progress";
+              const reviewerEvaluations = criteriaEvaluations.get(reviewer.id) || [];
+
+              return (
+                <div key={reviewer.id} className="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow relative overflow-hidden">
+                  {/* Options Menu - Top Right */}
+                  <div className="absolute top-3 right-3 z-10">
+                    <button
+                      onClick={() => setOpenMenuId(openMenuId === reviewer.id ? null : reviewer.id)}
+                      className="w-6 h-6 bg-gray-50 hover:bg-gray-100 text-gray-600 hover:text-gray-700 rounded-full flex items-center justify-center transition-colors"
+                      title="Opciones del revisor"
+                    >
+                      <MoreVertical className="w-4 h-4" />
+                    </button>
+
+                    {/* Dropdown Menu */}
+                    {openMenuId === reviewer.id && (
+                      <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-10 min-w-[160px]">
+                        <button
+                          onClick={() => {
+                            handleRemoveReviewer(reviewer.id);
+                            setOpenMenuId(null);
+                          }}
+                          className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          {t('review_system.actions.remove_reviewer')}
+                        </button>
+                      </div>
+                    )}
                   </div>
-                  <div className="flex items-center gap-3 flex-shrink-0 ml-4">
-                    <span className={`px-2 py-1 text-xs font-medium rounded ${getStatusColor(reviewer.status)}`}>
-                      <span className="capitalize whitespace-nowrap">{reviewer.status.replace('_', ' ')}</span>
-                    </span>
-                    
-                    {/* Quality Score Section */}
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-gray-600 font-medium">{t('review_system.quality_score.label')}</span>
-                        {/* Interactive Score Bar */}
-                        <div className="flex items-center gap-1">
-                          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
+
+                  {/* Reviewer Header */}
+                  <div className="p-4">
+                    <div className="flex items-center justify-between pr-8">
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 bg-blue-50 rounded-full flex items-center justify-center flex-shrink-0">
+                          <User className="w-5 h-5 text-blue-600" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <h5 className="font-semibold text-gray-900 truncate">{reviewer.reviewer_username}</h5>
+                          <p className="text-sm text-gray-500">
+                            {t('review_system.assigned_on').replace('{date}', new Date(reviewer.assigned_at).toLocaleDateString())}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3 flex-shrink-0 ml-4">
+                        <span className={`px-2 py-1 text-xs font-medium rounded ${getStatusColor(reviewer.status)}`}>
+                          <span className="capitalize whitespace-nowrap">{reviewer.status.replace('_', ' ')}</span>
+                        </span>
+
+                        {/* Score - Only show when completed */}
+                        {reviewer.status === "completed" && reviewer.code_quality_score && (
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-gray-600 font-medium">{t('review_system.quality_score.label')}</span>
+                            <div className="flex items-center gap-1">
+                              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
+                                <div
+                                  key={num}
+                                  className={`w-3 h-3 rounded-full ${
+                                    num <= (reviewer.code_quality_score || 0)
+                                      ? num <= 6
+                                        ? 'bg-red-400'
+                                        : num <= 8
+                                        ? 'bg-yellow-400'
+                                        : 'bg-green-400'
+                                      : 'bg-gray-200'
+                                  }`}
+                                />
+                              ))}
+                            </div>
+                            <span className="text-sm font-medium text-gray-700">
+                              {reviewer.code_quality_score}/10
+                            </span>
+                          </div>
+                        )}
+
+                        {/* Action Buttons */}
+                        <div className="flex gap-2">
+                          {reviewer.status === "pending" && (
                             <button
-                              key={num}
-                              onClick={() => handleQualityScoreUpdate(reviewer.id, num)}
-                              className={`w-3 h-3 rounded-full transition-all duration-200 hover:scale-110 cursor-pointer ${
-                                num <= (reviewer.code_quality_score || 0)
-                                  ? num <= 6
-                                    ? 'bg-red-400 hover:bg-red-500'
-                                    : num <= 8
-                                    ? 'bg-yellow-400 hover:bg-yellow-500'
-                                    : 'bg-green-400 hover:bg-green-500'
-                                  : 'bg-gray-200 hover:bg-gray-300'
-                              }`}
-                              title={t('review_system.quality_score.title').replace('{score}', num.toString())}
-                            />
-                          ))}
+                              onClick={() => handleStartReview(reviewer.id)}
+                              className="px-3 py-1 text-xs font-medium text-amber-700 hover:text-amber-800 border border-amber-300 hover:border-amber-400 rounded transition-colors flex items-center gap-1"
+                            >
+                              <ClipboardList className="w-3 h-3" />
+                              {t('review_system.actions.start_review')}
+                            </button>
+                          )}
+                          {reviewer.status === "in_progress" && !isActive && (
+                            <button
+                              onClick={() => setActiveReviewerId(reviewer.id)}
+                              className="px-3 py-1 text-xs font-medium text-cyan-700 hover:text-cyan-800 border border-cyan-300 hover:border-cyan-400 rounded transition-colors"
+                            >
+                              Continuar
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>
-                    
-                    <div className="flex gap-2">
-                      {reviewer.status === "pending" && (
-                        <button
-                          onClick={() => handleStatusUpdate(reviewer.id, "in_progress")}
-                          className="px-3 py-1 text-xs font-medium text-amber-700 hover:text-amber-800 border border-amber-300 hover:border-amber-400 rounded transition-colors"
-                        >
-                          {t('review_system.actions.start_review')}
-                        </button>
-                      )}
-                      {reviewer.status === "in_progress" && (
-                        <button
-                          onClick={() => handleStatusUpdate(reviewer.id, "completed")}
-                          className="px-3 py-1 text-xs font-medium text-green-700 hover:text-green-800 border border-green-300 hover:border-green-400 rounded transition-colors"
-                        >
-                          {t('review_system.actions.complete_review')}
-                        </button>
-                      )}
-                    </div>
+
+                    {/* Pending State - Info message */}
+                    {reviewer.status === "pending" && (
+                      <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                        <p className="text-sm text-amber-800">
+                          Abre el repositorio del estudiante y revisa el código antes de iniciar la evaluación.
+                        </p>
+                      </div>
+                    )}
                   </div>
+
+                  {/* Checklist Section - Only when in_progress and active */}
+                  {reviewer.status === "in_progress" && isActive && (
+                    <div className="border-t border-gray-200 p-4 bg-gray-50">
+                      <div className="flex items-center gap-2 mb-4">
+                        <ClipboardList className="w-5 h-5 text-cyan-600" />
+                        <h4 className="font-medium text-gray-900">Checklist de Evaluación</h4>
+                      </div>
+                      <ReviewChecklist
+                        evaluations={reviewerEvaluations}
+                        onEvaluationChange={(evaluation) => handleEvaluationChange(reviewer.id, evaluation)}
+                        onComplete={() => handleCompleteReview(reviewer.id)}
+                      />
+                    </div>
+                  )}
+
+                  {/* Collapsed in_progress state */}
+                  {reviewer.status === "in_progress" && !isActive && (
+                    <div className="border-t border-gray-100 px-4 py-2 bg-cyan-50">
+                      <p className="text-xs text-cyan-700">
+                        Revisión en progreso - {reviewerEvaluations.length} criterios evaluados
+                      </p>
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       </div>
