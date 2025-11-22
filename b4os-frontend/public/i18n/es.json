@@ -295,7 +295,56 @@
     "no_reviewers": "No hay revisores asignados",
     "no_comments": "No hay comentarios",
     "confirm_remove": "¿Estás seguro de que quieres remover este revisor?",
-    "options_menu": "Opciones del revisor"
+    "options_menu": "Opciones del revisor",
+    "checklist": {
+      "title": "Checklist de Evaluación",
+      "progress": "Progreso de Evaluación",
+      "criteria_count": "{completed}/{total} criterios",
+      "partial_score": "Score Parcial",
+      "complete_button": "Completar Revisión",
+      "evaluate_more": "Evalúa {count} criterios más",
+      "continue": "Continuar",
+      "in_progress_collapsed": "Revisión en progreso - {count} criterios evaluados",
+      "pending_message": "Abre el repositorio del estudiante y revisa el código antes de iniciar la evaluación.",
+      "categories": {
+        "code_quality": "Calidad de Código",
+        "functionality": "Funcionalidad",
+        "documentation": "Documentación"
+      },
+      "criteria": {
+        "readability": {
+          "name": "Legibilidad",
+          "description": "Nombres claros, formato consistente, código fácil de leer"
+        },
+        "organization": {
+          "name": "Organización",
+          "description": "Estructura lógica, modularidad, separación de responsabilidades"
+        },
+        "correctness": {
+          "name": "Correctitud",
+          "description": "El código funciona correctamente y cumple los requisitos"
+        },
+        "error_handling": {
+          "name": "Manejo de Errores",
+          "description": "Manejo apropiado de casos de error y excepciones"
+        },
+        "comments": {
+          "name": "Comentarios",
+          "description": "Código comentado donde es necesario, comentarios útiles"
+        },
+        "readme": {
+          "name": "README",
+          "description": "Documentación clara del proyecto y cómo ejecutarlo"
+        }
+      },
+      "scores": {
+        "1": "Deficiente",
+        "2": "Necesita Mejora",
+        "3": "Aceptable",
+        "4": "Bueno",
+        "5": "Excelente"
+      }
+    }
   },
   "assignment_selector": {
     "title": "Seleccionar Asignación",
