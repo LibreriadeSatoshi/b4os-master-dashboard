@@ -195,6 +195,12 @@ async function getLeaderboard() {
       }
     })
 
+    // Get total number of assignments in the system
+    const { data: allAssignments } = await supabase
+      .from('assignments')
+      .select('name')
+    const totalSystemAssignments = allAssignments?.length || 1
+
     const studentMap = new Map()
     gradesData.forEach(grade => {
       const username = grade.github_username
@@ -204,6 +210,7 @@ async function getLeaderboard() {
           total_score: 0,
           total_possible: 0,
           assignments_completed: 0,
+          sum_of_percentages: 0,
           grades: []
         })
       }
@@ -212,15 +219,20 @@ async function getLeaderboard() {
       student.total_score += grade.points_awarded || 0
       student.total_possible += grade.points_available || 0
       student.grades.push(grade)
+
+      // Add individual percentage for this assignment
+      const individualPercentage = grade.points_available > 0
+        ? (grade.points_awarded || 0) / grade.points_available * 100
+        : 0
+      student.sum_of_percentages += individualPercentage
     })
 
     const leaderboard = Array.from(studentMap.values()).map(student => ({
       github_username: student.github_username,
       total_score: student.total_score,
       total_possible: student.total_possible,
-      percentage: student.total_possible > 0
-        ? Math.round((student.total_score / student.total_possible) * 100)
-        : 0,
+      // Calculate: sum of individual percentages / total assignments in system
+      percentage: Math.round(student.sum_of_percentages / totalSystemAssignments),
       assignments_completed: acceptedAssignments.get(student.github_username)?.size || 0,
       resolution_time_hours: undefined,
       has_fork: false

@@ -491,6 +491,9 @@ class ClassroomSupabaseSync:
                         assignment_points[assignment_name] = max_points
                         logger.info(f"Using max points ({max_points}) as reference for assignment: {assignment_name}")
 
+            # Get total number of assignments in the system for percentage calculation
+            total_system_assignments = len(assignments_result.data) if assignments_result.data else 1
+
             # Calculate leaderboard data for each student
             leaderboard_data = []
 
@@ -504,7 +507,14 @@ class ClassroomSupabaseSync:
                 # Calculate totals
                 total_score = sum(grade['points_awarded'] for grade in student_grades if grade['points_awarded'])
                 total_possible = sum(assignment_points.get(grade['assignment_name'], 0) for grade in student_grades)
-                percentage = round((total_score / total_possible) * 100) if total_possible > 0 else 0
+
+                # Calculate percentage as: sum of individual percentages / total assignments in system
+                sum_of_percentages = sum(
+                    (grade['points_awarded'] / assignment_points.get(grade['assignment_name'], 1)) * 100
+                    for grade in student_grades
+                    if grade['points_awarded'] and assignment_points.get(grade['assignment_name'], 0) > 0
+                )
+                percentage = round(sum_of_percentages / total_system_assignments)
 
                 # Count unique assignments that have been accepted (have fork_created_at)
                 unique_assignments = set(
