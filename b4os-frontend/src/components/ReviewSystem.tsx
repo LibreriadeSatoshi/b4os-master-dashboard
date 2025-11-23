@@ -597,7 +597,7 @@ export default function ReviewSystem({
                     {reviewer.status === "pending" && (
                       <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
                         <p className="text-sm text-amber-800">
-                          Abre el repositorio del estudiante y revisa el código antes de iniciar la evaluación.
+                          {t('review.pending_message')}
                         </p>
                       </div>
                     )}
@@ -608,7 +608,7 @@ export default function ReviewSystem({
                     <div className="border-t border-gray-200 p-4 bg-gray-50">
                       <div className="flex items-center gap-2 mb-4">
                         <ClipboardList className="w-5 h-5 text-cyan-600" />
-                        <h4 className="font-medium text-gray-900">Checklist de Evaluación</h4>
+                        <h4 className="font-medium text-gray-900">{t('review.checklist_title')}</h4>
                       </div>
                       <ReviewChecklist
                         evaluations={reviewerEvaluations}
