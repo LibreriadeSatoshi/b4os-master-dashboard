@@ -279,7 +279,7 @@ export default function GradesBreakdown({ username, isExpanded, selectedAssignme
                       <button
                         onClick={() => onOpenActions(username, grade.assignment_name)}
                         className="w-5 h-5 bg-gray-50 hover:bg-orange-50 border border-gray-200 hover:border-orange-200 rounded flex items-center justify-center cursor-pointer transition-colors group"
-                        title="Ver GitHub Actions"
+                        title={t('grades_breakdown.actions.view_github_actions')}
                       >
                         <WorkflowIcon className="w-2.5 h-2.5 text-gray-500 group-hover:text-orange-600" />
                       </button>
@@ -288,7 +288,7 @@ export default function GradesBreakdown({ username, isExpanded, selectedAssignme
                       <button
                         onClick={() => onOpenReview(username, grade.assignment_name)}
                         className="w-5 h-5 bg-gray-50 hover:bg-blue-50 border border-gray-200 hover:border-blue-200 rounded flex items-center justify-center cursor-pointer transition-colors group"
-                        title="Revisar"
+                        title={t('grades_breakdown.actions.review_assignment')}
                       >
                         <UserCheck className="w-2.5 h-2.5 text-gray-500 group-hover:text-blue-600" />
                       </button>
@@ -320,13 +320,13 @@ export default function GradesBreakdown({ username, isExpanded, selectedAssignme
                 <div className="flex items-center justify-between text-[10px]">
                   <div className="text-gray-600">
                     {grade.progress === null || grade.progress === 0 ? (
-                      <span className="text-gray-500">Sin PoW</span>
+                      <span className="text-gray-500">{t('grades_breakdown.progress_labels.no_pow')}</span>
                     ) : grade.progress >= 80 ? (
-                      <span className="text-green-600 font-medium">Excelente</span>
+                      <span className="text-green-600 font-medium">{t('grades_breakdown.progress_labels.excellent')}</span>
                     ) : grade.progress >= 60 ? (
-                      <span className="text-yellow-600 font-medium">Bueno</span>
+                      <span className="text-yellow-600 font-medium">{t('grades_breakdown.progress_labels.good')}</span>
                     ) : (
-                      <span className="text-red-600 font-medium">Necesita mejorar</span>
+                      <span className="text-red-600 font-medium">{t('grades_breakdown.progress_labels.needs_improvement')}</span>
                     )}
                   </div>
 
@@ -341,7 +341,7 @@ export default function GradesBreakdown({ username, isExpanded, selectedAssignme
                           <button
                             onClick={() => onOpenReview?.(username, grade.assignment_name)}
                             className="flex items-center gap-0.5 text-green-600 hover:bg-green-50 px-1 py-0.5 rounded transition-colors cursor-pointer"
-                            title="Ver revisores"
+                            title={t('grades_breakdown.actions.view_reviewers_comments')}
                           >
                             <UserCheck className="w-3 h-3" />
                             <span className="font-medium">{reviewCounts.reviewers}</span>
@@ -351,7 +351,7 @@ export default function GradesBreakdown({ username, isExpanded, selectedAssignme
                           <button
                             onClick={() => onOpenReview?.(username, grade.assignment_name)}
                             className="flex items-center gap-0.5 text-gray-600 hover:bg-blue-50 hover:text-blue-600 px-1 py-0.5 rounded transition-colors cursor-pointer"
-                            title="Ver comentarios"
+                            title={t('grades_breakdown.actions.view_review_comments')}
                           >
                             <MessageSquare className="w-3 h-3" />
                             <span className="font-medium">{reviewCounts.comments}</span>

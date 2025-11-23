@@ -611,7 +611,7 @@ export default function DashboardClient({ initialData, assignments }: DashboardC
                           {/* Challenge */}
                           <div className="col-span-2 text-center">
                             <div className="text-sm text-gray-600">
-                              {assignmentsCountByStudent.get(student.github_username) || 0} de {assignments.length}
+                              {assignmentsCountByStudent.get(student.github_username) || 0} {t('common.of')} {assignments.length}
                             </div>
                           </div>
 
@@ -853,7 +853,7 @@ export default function DashboardClient({ initialData, assignments }: DashboardC
                                 {student.total_score || 0}/{student.total_possible || 0} {t('common.points')}
                               </span>
                               <span className="text-xs text-gray-400">
-                                {assignmentsCountByStudent.get(student.github_username) || 0} de {assignments.length} {t('common.assignments')}
+                                {assignmentsCountByStudent.get(student.github_username) || 0} {t('common.of')} {assignments.length} {t('common.assignments')}
                               </span>
                             </div>
                           </div>
