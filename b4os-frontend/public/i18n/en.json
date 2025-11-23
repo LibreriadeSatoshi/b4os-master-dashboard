@@ -25,11 +25,11 @@
     "view": "View",
     "review": "Review",
     "actions": "Actions",
-    "progress": "Progress",
+    "progress": "progress",
     "status": "Status",
     "score": "Score",
     "points": "Points",
-    "percentage": "Percentage",
+    "progress": "progress",
     "time": "Time",
     "date": "Date",
     "name": "Name",
@@ -48,7 +48,7 @@
     "completed": "Completed",
     "incomplete": "Incomplete",
     "pending": "Pending",
-    "in_progress": "In Progress",
+    "in_progress": "In progress",
     "excellent": "Excellent",
     "good": "Good",
     "needs_improvement": "Needs Improvement",
@@ -103,13 +103,13 @@
     "reset_filters": "Reset",
     "sort_options": {
       "resolution_time": {
-        "label": "Resolution Time",
+        "label": "Time Spent",
         "description": "Fastest first",
         "asc": "Fastest first",
         "desc": "Slowest first"
       },
-      "percentage": {
-        "label": "Percentage",
+      "progress": {
+        "label": "progress",
         "description": "Highest score first",
         "asc": "Lowest score first",
         "desc": "Highest score first"
@@ -149,9 +149,9 @@
     "columns": {
       "students": "Students",
       "assignments": "Assignments",
-      "resolution_time": "Resolution Time",
+      "resolution_time": "Time Spent",
       "points": "Points",
-      "percentage": "Percentage",
+      "progress": "Progress",
       "quality_score": "Code Quality",
       "review_status": "Review"
     },
@@ -289,7 +289,7 @@
     },
     "status": {
       "pending": "Pending",
-      "in_progress": "In Progress",
+      "in_progress": "In progress",
       "completed": "Completed"
     },
     "quality_score": {
@@ -303,7 +303,7 @@
     "options_menu": "Reviewer options",
     "checklist": {
       "title": "Evaluation Checklist",
-      "progress": "Evaluation Progress",
+      "progress": "Evaluation progress",
       "criteria_count": "{completed}/{total} criteria",
       "partial_score": "Partial Score",
       "complete_button": "Complete Review",

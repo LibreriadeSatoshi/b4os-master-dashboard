@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useEffect } from "react"
+import { useState, useCallback, useEffect, useMemo } from "react"
 import type { DashboardData } from "@/lib/dashboard-data"
 import type { Assignment, StudentReviewer } from "@/lib/supabase"
 import DashboardFilters, { FilterState } from "@/components/DashboardFilters"
@@ -69,6 +69,45 @@ export default function DashboardClient({ initialData, assignments }: DashboardC
     processReviewStatuses(leaderboard, reviewersMap)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Precalculate assignments count per student from allGrades
+  const assignmentsCountByStudent = useMemo(() => {
+    const countMap = new Map<string, number>()
+    const byStudent = new Map<string, Set<string>>()
+
+    allGrades.forEach(g => {
+      if (!byStudent.has(g.github_username)) {
+        byStudent.set(g.github_username, new Set())
+      }
+      byStudent.get(g.github_username)!.add(g.assignment_name)
+    })
+
+    byStudent.forEach((assignments, username) => {
+      countMap.set(username, assignments.size)
+    })
+
+    return countMap
+  }, [allGrades])
+
+  // Precalculate total Time Spent (sum of all assignment durations) per student
+  // Uses Math.ceil for days to match GradesBreakdown calculation
+  const totalResolutionTimeByStudent = useMemo(() => {
+    const timeMap = new Map<string, number>()
+
+    allGrades.forEach((g: { github_username: string; fork_created_at?: string; fork_updated_at?: string }) => {
+      if (!g.fork_created_at || !g.fork_updated_at) return
+
+      const start = new Date(g.fork_created_at).getTime()
+      const end = new Date(g.fork_updated_at).getTime()
+      // Use Math.ceil to match GradesBreakdown calculation
+      const durationDays = Math.ceil(Math.abs(end - start) / (1000 * 60 * 60 * 24))
+
+      const current = timeMap.get(g.github_username) || 0
+      timeMap.set(g.github_username, current + durationDays)
+    })
+
+    return timeMap
+  }, [allGrades])
 
   const processReviewStatuses = (
     students: typeof leaderboard,
@@ -145,26 +184,27 @@ export default function DashboardClient({ initialData, assignments }: DashboardC
     if (filters.showOnly !== "all") {
       filtered = filtered.filter((student) => {
         switch (filters.showOnly) {
-          case "completed": return student.percentage === 100
-          case "partial": return student.percentage > 0 && student.percentage < 100
-          case "incomplete": return student.percentage === 0
+          case "completed": return student.progress === 100
+          case "partial": return student.progress > 0 && student.progress < 100
+          case "incomplete": return student.progress === 0
           default: return true
         }
       })
     }
 
     filtered = filtered.filter((student) => {
-      if (student.resolution_time_hours === null || student.resolution_time_hours === undefined) return true
+      const totalDays = totalResolutionTimeByStudent.get(student.github_username)
+      if (totalDays === undefined) return true
       return (
-        student.resolution_time_hours >= filters.timeRange.min &&
-        student.resolution_time_hours <= filters.timeRange.max
+        totalDays >= filters.timeRange.min &&
+        totalDays <= filters.timeRange.max
       )
     })
 
     filtered = filtered.filter(
       (student) =>
-        student.percentage >= filters.percentageRange.min &&
-        student.percentage <= filters.percentageRange.max
+        student.progress >= filters.progressRange.min &&
+        student.progress <= filters.progressRange.max
     )
 
     const sortBy = sortConfig.key || filters.sortBy
@@ -176,12 +216,14 @@ export default function DashboardClient({ initialData, assignments }: DashboardC
       switch (sortBy) {
         case "username": comparison = a.github_username.localeCompare(b.github_username); break
         case "resolution_time":
-          const timeA = a.resolution_time_hours ?? 999999
-          const timeB = b.resolution_time_hours ?? 999999
+          const timeA = totalResolutionTimeByStudent.get(a.github_username) ?? 999999
+          const timeB = totalResolutionTimeByStudent.get(b.github_username) ?? 999999
           comparison = timeA - timeB
           break
-        case "percentage": comparison = a.percentage - b.percentage; break
-        case "assignments": comparison = a.assignments_completed - b.assignments_completed; break
+        case "progress": comparison = a.progress - b.progress; break
+        case "assignments":
+          comparison = (assignmentsCountByStudent.get(a.github_username) || 0) - (assignmentsCountByStudent.get(b.github_username) || 0)
+          break
         case "total_score": comparison = a.total_score - b.total_score; break
         case "quality_score":
           const reviewStatusA = reviewStatuses.get(a.github_username)
@@ -376,7 +418,7 @@ export default function DashboardClient({ initialData, assignments }: DashboardC
                 <div className="hidden md:grid grid-cols-13 items-center px-6 py-4 bg-gray-50 rounded-lg text-sm font-semibold text-gray-700 mb-3">
                   <div className="col-span-1"></div> {/* Avatar */}
                   <div
-                    className="col-span-3 text-left cursor-pointer hover:bg-gray-100 rounded px-2 py-1 -mx-2 transition-colors flex items-center gap-1"
+                    className="col-span-4 text-left cursor-pointer hover:bg-gray-100 rounded px-2 py-1 -mx-2 transition-colors flex items-center gap-1"
                     onClick={() => handleSort("username")}
                   >
                     {t('leaderboard.columns.students')}
@@ -408,6 +450,7 @@ export default function DashboardClient({ initialData, assignments }: DashboardC
                       </span>
                     )}
                   </div>
+                  {/* Hidden: Puntos column
                   <div
                     className="col-span-2 text-center cursor-pointer hover:bg-gray-100 rounded px-2 py-1 -mx-2 transition-colors flex items-center justify-center gap-1"
                     onClick={() => handleSort("total_score")}
@@ -419,12 +462,13 @@ export default function DashboardClient({ initialData, assignments }: DashboardC
                       </span>
                     )}
                   </div>
+                  */}
                   <div
-                    className="col-span-1 text-center cursor-pointer hover:bg-gray-100 rounded px-2 py-1 -mx-2 transition-colors flex items-center justify-center gap-1"
-                    onClick={() => handleSort("percentage")}
+                    className="col-span-2 text-center cursor-pointer hover:bg-gray-100 rounded px-2 py-1 -mx-2 transition-colors flex items-center justify-center gap-1"
+                    onClick={() => handleSort("progress")}
                   >
-                    {t('leaderboard.columns.percentage')}
-                    {sortConfig.key === "percentage" && (
+                    {t('leaderboard.columns.progress')}
+                    {sortConfig.key === "progress" && (
                       <span className="text-orange-500">
                         {sortConfig.direction === "asc" ? "↑" : "↓"}
                       </span>
@@ -501,7 +545,7 @@ export default function DashboardClient({ initialData, assignments }: DashboardC
                           </div>
 
                           {/* Estudiante */}
-                          <div className="col-span-3">
+                          <div className="col-span-4">
                             <div className="space-y-2">
                               <div className="flex items-center gap-2">
                                 <a
@@ -567,53 +611,58 @@ export default function DashboardClient({ initialData, assignments }: DashboardC
                           {/* Challenge */}
                           <div className="col-span-2 text-center">
                             <div className="text-sm text-gray-600">
-                              {student.assignments_completed} de {assignments.length}
+                              {assignmentsCountByStudent.get(student.github_username) || 0} de {assignments.length}
                             </div>
                           </div>
 
-                          {/* Tiempo de Resolución */}
+                          {/* Tiempo dedicado */}
                           <div className="col-span-2 text-center">
                             <div className="text-sm text-gray-700 font-medium">
-                              {student.resolution_time_hours !== null && student.resolution_time_hours !== undefined ? (
-                                <span className="text-orange-600 font-semibold">
-                                  {Math.floor(student.resolution_time_hours / 24)}d {student.resolution_time_hours % 24}h
-                                </span>
-                              ) : (
-                                <span className="text-gray-400">N/A</span>
-                              )}
+                              {(() => {
+                                const totalDays = totalResolutionTimeByStudent.get(student.github_username)
+                                if (totalDays === undefined || totalDays === 0) {
+                                  return <span className="text-gray-400">N/A</span>
+                                }
+                                return (
+                                  <span className="text-orange-600 font-semibold">
+                                    {totalDays}d
+                                  </span>
+                                )
+                              })()}
                             </div>
                           </div>
 
-                          {/* Puntos Obtenidos */}
+                          {/* Hidden: Puntos Obtenidos
                           <div className="col-span-2 text-center">
                             <div className="text-sm text-gray-700 font-semibold">
                               {student.total_score || 0}
                             </div>
                           </div>
+                          */}
 
-                          {/* Porcentaje */}
-                          <div className="col-span-1 text-center">
+                          {/* Progreso */}
+                          <div className="col-span-2 text-center">
                             <div className="flex items-center gap-2">
                               <div className="flex-1 bg-gray-200 rounded-full h-2">
                                 <div
                                   className={`h-2 rounded-full transition-all duration-300 ${
-                                    student.percentage >= 80 ? "bg-green-500"
-                                      : student.percentage >= 60 ? "bg-yellow-500"
-                                      : student.percentage >= 40 ? "bg-orange-500"
+                                    student.progress >= 80 ? "bg-green-500"
+                                      : student.progress >= 60 ? "bg-yellow-500"
+                                      : student.progress >= 40 ? "bg-orange-500"
                                       : "bg-red-500"
                                   }`}
-                                  style={{ width: `${Math.min(student.percentage || 0, 100)}%` }}
+                                  style={{ width: `${Math.min(student.progress || 0, 100)}%` }}
                                 />
                               </div>
                               <div
                                 className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                                  student.percentage >= 80 ? "bg-green-100 text-green-800"
-                                    : student.percentage >= 60 ? "bg-yellow-100 text-yellow-800"
-                                    : student.percentage >= 40 ? "bg-orange-100 text-orange-800"
+                                  student.progress >= 80 ? "bg-green-100 text-green-800"
+                                    : student.progress >= 60 ? "bg-yellow-100 text-yellow-800"
+                                    : student.progress >= 40 ? "bg-orange-100 text-orange-800"
                                     : "bg-red-100 text-red-800"
                                 }`}
                               >
-                                {student.percentage || 0}%
+                                {student.progress || 0}%
                               </div>
                             </div>
                           </div>
@@ -777,12 +826,12 @@ export default function DashboardClient({ initialData, assignments }: DashboardC
                             </div>
 
                             <div className={`px-3 py-1 rounded-full text-sm font-medium ${
-                              student.percentage >= 80 ? "bg-green-100 text-green-700"
-                                : student.percentage >= 60 ? "bg-yellow-100 text-yellow-700"
-                                : student.percentage >= 40 ? "bg-orange-100 text-orange-700"
+                              student.progress >= 80 ? "bg-green-100 text-green-700"
+                                : student.progress >= 60 ? "bg-yellow-100 text-yellow-700"
+                                : student.progress >= 40 ? "bg-orange-100 text-orange-700"
                                 : "bg-red-100 text-red-700"
                             }`}>
-                              {student.percentage || 0}%
+                              {student.progress || 0}%
                             </div>
                           </div>
 
@@ -790,12 +839,12 @@ export default function DashboardClient({ initialData, assignments }: DashboardC
                             <div className="w-full bg-gray-200 rounded-full h-3">
                               <div
                                 className={`h-3 rounded-full transition-all duration-300 ${
-                                  student.percentage >= 80 ? "bg-green-500"
-                                    : student.percentage >= 60 ? "bg-yellow-500"
-                                    : student.percentage >= 40 ? "bg-orange-500"
+                                  student.progress >= 80 ? "bg-green-500"
+                                    : student.progress >= 60 ? "bg-yellow-500"
+                                    : student.progress >= 40 ? "bg-orange-500"
                                     : "bg-red-500"
                                 }`}
-                                style={{ width: `${Math.min(student.percentage || 0, 100)}%` }}
+                                style={{ width: `${Math.min(student.progress || 0, 100)}%` }}
                               />
                             </div>
 
@@ -804,7 +853,7 @@ export default function DashboardClient({ initialData, assignments }: DashboardC
                                 {student.total_score || 0}/{student.total_possible || 0} {t('common.points')}
                               </span>
                               <span className="text-xs text-gray-400">
-                                {student.assignments_completed} de {assignments.length} {t('common.assignments')}
+                                {assignmentsCountByStudent.get(student.github_username) || 0} de {assignments.length} {t('common.assignments')}
                               </span>
                             </div>
                           </div>

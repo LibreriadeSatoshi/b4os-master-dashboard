@@ -119,16 +119,16 @@ export function isReviewComplete(evaluations: CriterionEvaluation[]): boolean {
 }
 
 // Get evaluation progress
-export function getEvaluationProgress(evaluations: CriterionEvaluation[]): {
+export function getEvaluationprogress(evaluations: CriterionEvaluation[]): {
   completed: number
   total: number
-  percentage: number
+  progress: number
 } {
   const completed = evaluations.length
   const total = REVIEW_CRITERIA.length
   return {
     completed,
     total,
-    percentage: Math.round((completed / total) * 100)
+    progress: Math.round((completed / total) * 100)
   }
 }

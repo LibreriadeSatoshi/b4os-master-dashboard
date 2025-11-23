@@ -12,16 +12,16 @@ interface DashboardFiltersProps {
 }
 
 export interface FilterState {
-  sortBy: 'resolution_time' | 'percentage' | 'username' | 'assignments'
+  sortBy: 'resolution_time' | 'progress' | 'username' | 'assignments'
   sortOrder: 'asc' | 'desc'
   showOnly: 'all' | 'completed' | 'partial' | 'incomplete'
   timeRange: { min: number; max: number }
-  percentageRange: { min: number; max: number }
+  progressRange: { min: number; max: number }
   searchTerm: string
   selectedAssignment: string  // 'all' or assignment name
   showColumns: {
     resolutionTime: boolean
-    percentage: boolean
+    progress: boolean
     assignments: boolean
     score: boolean
   }
@@ -32,12 +32,12 @@ const defaultFilters: FilterState = {
   sortOrder: 'asc',
   showOnly: 'all',
   timeRange: { min: 0, max: 10000 },
-  percentageRange: { min: 0, max: 200 },
+  progressRange: { min: 0, max: 200 },
   searchTerm: '',
   selectedAssignment: 'all',
   showColumns: {
     resolutionTime: true,
-    percentage: true,
+    progress: true,
     assignments: true,
     score: true
   }
@@ -161,7 +161,7 @@ export default function DashboardFilters({ onFiltersChange, totalStudents, filte
             <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
               {[
                 { key: 'resolution_time', label: t('filters.sort_options.resolution_time.label'), desc: t('filters.sort_options.resolution_time.description') },
-                { key: 'percentage', label: t('filters.sort_options.percentage.label'), desc: t('filters.sort_options.percentage.description') },
+                { key: 'progress', label: t('filters.sort_options.progress.label'), desc: t('filters.sort_options.progress.description') },
                 { key: 'assignments', label: t('filters.sort_options.assignments.label'), desc: t('filters.sort_options.assignments.description') }
               ].map(({ key, label, desc }) => (
                 <button
@@ -183,10 +183,10 @@ export default function DashboardFilters({ onFiltersChange, totalStudents, filte
                       <span className="font-medium">
                         {filters.sortOrder === 'asc' 
                           ? (key === 'resolution_time' ? 'Más rápido primero' : 
-                             key === 'percentage' ? 'Menor puntaje primero' :
+                             key === 'progress' ? 'Menor puntaje primero' :
                              'Menos completados primero')
                           : (key === 'resolution_time' ? 'Más lento primero' : 
-                             key === 'percentage' ? 'Mayor puntaje primero' :
+                             key === 'progress' ? 'Mayor puntaje primero' :
                              'Más completados primero')
                         }
                       </span>

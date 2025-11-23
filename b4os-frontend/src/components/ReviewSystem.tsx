@@ -103,7 +103,7 @@ export default function ReviewSystem({
         const endDate = assignmentGrade.fork_updated_at || null;
         let duration = null;
 
-        if (startDate && endDate && assignmentGrade.percentage && assignmentGrade.percentage > 0) {
+        if (startDate && endDate && assignmentGrade.progress && assignmentGrade.progress > 0) {
           const start = new Date(startDate);
           const end = new Date(endDate);
           const diffTime = Math.abs(end.getTime() - start.getTime());

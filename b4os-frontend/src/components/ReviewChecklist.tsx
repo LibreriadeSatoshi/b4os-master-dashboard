@@ -9,7 +9,7 @@ import {
   type CriterionEvaluation,
   type ReviewCriterion,
   calculateWeightedScore,
-  getEvaluationProgress,
+  getEvaluationprogress,
   isReviewComplete
 } from "@/data/reviewCriteria";
 
@@ -49,11 +49,11 @@ export default function ReviewChecklist({
     onEvaluationChange({ criterionId, score });
   };
 
-  const progress = getEvaluationProgress(evaluations);
+  const progress = getEvaluationprogress(evaluations);
   const canComplete = isReviewComplete(evaluations);
   const currentScore = calculateWeightedScore(evaluations);
 
-  const getCategoryProgress = (category: string): { evaluated: number; total: number } => {
+  const getCategoryprogress = (category: string): { evaluated: number; total: number } => {
     const criteria = CRITERIA_BY_CATEGORY[category] || [];
     const evaluated = criteria.filter(c =>
       evaluations.some(e => e.criterionId === c.id)
@@ -63,7 +63,7 @@ export default function ReviewChecklist({
 
   return (
     <div className="space-y-4">
-      {/* Progress Header */}
+      {/* progress Header */}
       <div className="flex items-center justify-between bg-gray-50 rounded-lg p-3 border border-gray-200">
         <div className="flex items-center gap-3">
           <span className="text-sm font-medium text-gray-700">
@@ -74,15 +74,15 @@ export default function ReviewChecklist({
           </span>
         </div>
         <div className="flex items-center gap-3">
-          {/* Progress Bar */}
+          {/* progress Bar */}
           <div className="w-32 h-2 bg-gray-200 rounded-full overflow-hidden">
             <div
               className="h-full bg-emerald-500 transition-all duration-300"
-              style={{ width: `${progress.percentage}%` }}
+              style={{ width: `${progress.progress}%` }}
             />
           </div>
           <span className="text-sm font-medium text-gray-600">
-            {progress.percentage}%
+            {progress.progress}%
           </span>
         </div>
       </div>
@@ -91,8 +91,8 @@ export default function ReviewChecklist({
       <div className="space-y-3">
         {Object.entries(CRITERIA_BY_CATEGORY).map(([category, criteria]) => {
           const isExpanded = expandedCategories.has(category);
-          const categoryProgress = getCategoryProgress(category);
-          const allEvaluated = categoryProgress.evaluated === categoryProgress.total;
+          const categoryprogress = getCategoryprogress(category);
+          const allEvaluated = categoryprogress.evaluated === categoryprogress.total;
 
           return (
             <div key={category} className="border border-gray-200 rounded-lg overflow-hidden">
@@ -117,7 +117,7 @@ export default function ReviewChecklist({
                       ? 'bg-emerald-100 text-emerald-700'
                       : 'bg-gray-100 text-gray-600'
                   }`}>
-                    {categoryProgress.evaluated}/{categoryProgress.total}
+                    {categoryprogress.evaluated}/{categoryprogress.total}
                   </span>
                   {allEvaluated && (
                     <CheckCircle2 className="w-4 h-4 text-emerald-500" />

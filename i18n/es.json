@@ -29,7 +29,7 @@
     "status": "Estado",
     "score": "Puntaje",
     "points": "Puntos",
-    "percentage": "Porcentaje",
+    "progress": "Progreso",
     "time": "Tiempo",
     "date": "Fecha",
     "name": "Nombre",
@@ -103,13 +103,13 @@
     "reset_filters": "Resetear",
     "sort_options": {
       "resolution_time": {
-        "label": "Tiempo de Resolución",
+        "label": "Tiempo dedicado",
         "description": "Más rápido primero",
         "asc": "Más rápido primero",
         "desc": "Más lento primero"
       },
-      "percentage": {
-        "label": "Porcentaje",
+      "progress": {
+        "label": "Progreso",
         "description": "Mayor puntaje primero",
         "asc": "Menor puntaje primero",
         "desc": "Mayor puntaje primero"
@@ -149,9 +149,9 @@
     "columns": {
       "students": "Estudiantes",
       "assignments": "Asignaciones",
-      "resolution_time": "Tiempo de Resolución",
+      "resolution_time": "Tiempo dedicado",
       "points": "Puntos",
-      "percentage": "Porcentaje",
+      "progress": "Progreso",
       "quality_score": "Calidad de Código",
       "review_status": "Revisión"
     },

@@ -34,7 +34,6 @@ type TranslationKeys = {
     status: string
     score: string
     points: string
-    percentage: string
     time: string
     date: string
     name: string
@@ -111,7 +110,7 @@ type TranslationKeys = {
         asc: string
         desc: string
       }
-      percentage: {
+      progress: {
         label: string
         description: string
         asc: string
@@ -154,7 +153,7 @@ type TranslationKeys = {
       assignments: string
       resolution_time: string
       points: string
-      percentage: string
+      progress: string
       quality_score: string
       review_status: string
     }

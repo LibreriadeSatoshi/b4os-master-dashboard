@@ -45,7 +45,7 @@ export interface ConsolidatedGrade {
   assignment_name: string
   points_awarded: number | null
   points_available: number | null
-  percentage: number | null
+  progress: number | null
 }
 
 export interface StudentReviewer {
@@ -124,7 +124,7 @@ export class SupabaseService {
     github_username: string
     total_score: number
     total_possible: number
-    percentage: number
+    progress: number
     assignments_completed: number
     fork_created_at?: string
     last_updated_at?: string
@@ -159,7 +159,7 @@ export class SupabaseService {
     assignment_name: string
     points_awarded: number | null
     points_available: number | null
-    percentage: number | null
+    progress: number | null
     fork_created_at?: string | null
     fork_updated_at?: string | null
   }>> {
@@ -398,7 +398,7 @@ export class SupabaseService {
       github_username: string
       total_score: number
       total_possible: number
-      percentage: number
+      progress: number
       assignments_completed: number
       fork_created_at?: string
       last_updated_at?: string

@@ -77,13 +77,13 @@ export async function GET(
       const gradeData = gradesMap.get(assignment.name)
       const pointsAwarded = gradeData?.points || 0
       const pointsAvailable = assignmentMap.get(assignment.name) || 0
-      const percentage = pointsAvailable > 0 ? Math.round((pointsAwarded / pointsAvailable) * 100) : 0
+      const progress = pointsAvailable > 0 ? Math.round((pointsAwarded / pointsAvailable) * 100) : 0
 
       return {
         assignment_name: assignment.name,
         points_awarded: pointsAwarded,
         points_available: pointsAvailable,
-        percentage: percentage,
+        progress: progress,
         fork_created_at: gradeData?.fork_created_at || null,
         fork_updated_at: gradeData?.fork_updated_at || null
       }
