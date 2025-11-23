@@ -13,7 +13,7 @@ interface LeaderboardEntry {
   github_username: string
   total_score: number
   total_possible: number
-  percentage: number
+  progress: number
   assignments_completed: number
   resolution_time_hours?: number | null
   has_fork?: boolean
@@ -58,7 +58,8 @@ export async function GET() {
     const results = await Promise.allSettled([
       getAssignments(),
       getStudentStats(leaderboard), // Pass leaderboard to stats calculation
-      isAdminOrInstructor ? getAllStudentReviewersGrouped() : Promise.resolve(new Map())
+      isAdminOrInstructor ? getAllStudentReviewersGrouped() : Promise.resolve(new Map()),
+      getGrades() // Get all grades for recalculating assignments_completed
     ])
 
     // Check for any failures
@@ -74,10 +75,11 @@ export async function GET() {
       )
     }
 
-    const [assignmentsResult, statsResult, reviewersResult] = results
+    const [assignmentsResult, statsResult, reviewersResult, gradesResult] = results
     const assignmentsData = assignmentsResult.status === 'fulfilled' ? assignmentsResult.value : []
     const statsData = statsResult.status === 'fulfilled' ? statsResult.value : null
     const reviewersData = reviewersResult.status === 'fulfilled' ? reviewersResult.value : new Map()
+    const allGradesData = gradesResult.status === 'fulfilled' ? gradesResult.value : []
 
     // Convert Map to object if needed
     const reviewersGrouped = reviewersData instanceof Map 
@@ -94,7 +96,8 @@ export async function GET() {
         avgScore: 0,
         completionRate: 0
       },
-      reviewersGrouped
+      reviewersGrouped,
+      allGrades: allGradesData || []
     })
   } catch (error) {
     console.error('Error fetching dashboard data:', error)
@@ -135,7 +138,7 @@ async function getLeaderboard() {
           github_username: student.github_username,
           total_score: student.total_score,
           total_possible: student.total_possible,
-          percentage: student.percentage,
+          progress: student.percentage, // DB column is 'percentage', frontend uses 'progress'
           assignments_completed: student.assignments_completed,
           // Only include resolution_time if it exists and is meaningful
           resolution_time_hours: student.resolution_time_hours || undefined,
@@ -151,7 +154,7 @@ async function getLeaderboard() {
               github_username: student.github_username,
               total_score: 0,
               total_possible: 0,
-              percentage: 0,
+              progress: 0,
               assignments_completed: 0,
               resolution_time_hours: undefined,
               has_fork: false
@@ -210,7 +213,7 @@ async function getLeaderboard() {
           total_score: 0,
           total_possible: 0,
           assignments_completed: 0,
-          sum_of_percentages: 0,
+          sum_of_progresss: 0,
           grades: []
         })
       }
@@ -220,20 +223,21 @@ async function getLeaderboard() {
       student.total_possible += grade.points_available || 0
       student.grades.push(grade)
 
-      // Add individual percentage for this assignment
-      const individualPercentage = grade.points_available > 0
+      // Add individual progress for this assignment
+      const individualprogress = grade.points_available > 0
         ? (grade.points_awarded || 0) / grade.points_available * 100
         : 0
-      student.sum_of_percentages += individualPercentage
+      student.sum_of_progresss += individualprogress
     })
 
     const leaderboard = Array.from(studentMap.values()).map(student => ({
       github_username: student.github_username,
       total_score: student.total_score,
       total_possible: student.total_possible,
-      // Calculate: sum of individual percentages / total assignments in system
-      percentage: Math.round(student.sum_of_percentages / totalSystemAssignments),
-      assignments_completed: acceptedAssignments.get(student.github_username)?.size || 0,
+      // Calculate: sum of individual progresss / total assignments in system
+      progress: Math.round(student.sum_of_progresss / totalSystemAssignments),
+      // Count unique assignments where student has a grade
+      assignments_completed: new Set(student.grades.map((g: { assignment_name: string }) => g.assignment_name)).size,
       resolution_time_hours: undefined,
       has_fork: false
     }))
@@ -246,7 +250,7 @@ async function getLeaderboard() {
             github_username: student.github_username,
             total_score: 0,
             total_possible: 0,
-            percentage: 0,
+            progress: 0,
             assignments_completed: 0,
             resolution_time_hours: undefined,
             has_fork: false
@@ -255,7 +259,7 @@ async function getLeaderboard() {
       })
     }
 
-    return leaderboard.sort((a, b) => b.percentage - a.percentage)
+    return leaderboard.sort((a, b) => b.progress - a.progress)
   } catch (error) {
     console.error('Error in getLeaderboard:', error)
     const errorMessage = error instanceof Error ? error.message : String(error)
@@ -400,6 +404,24 @@ async function getAllStudentReviewersGrouped() {
     console.error('Error in getAllStudentReviewersGrouped:', error)
     // Return empty map instead of throwing to prevent dashboard from failing
     return new Map()
+  }
+}
+
+async function getGrades() {
+  try {
+    const { data, error } = await supabase
+      .from('grades')
+      .select('github_username, assignment_name, points_awarded')
+      .order('github_username')
+
+    if (error) {
+      console.error('Error fetching grades:', error)
+      return []
+    }
+    return data || []
+  } catch (error) {
+    console.error('Error in getGrades:', error)
+    return []
   }
 }
 

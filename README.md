@@ -6,7 +6,7 @@ Dashboard administrativo para el programa Bitcoin 4 Open Source (B4OS) que permi
 
 - **Dashboard en tiempo real** con estadísticas de estudiantes
 - **Sistema de autenticación** con GitHub OAuth
-- **Ranking dinámico** basado en tiempo de resolución
+- **Ranking dinámico** basado en Tiempo dedicado
 - **Filtros avanzados** para análisis de datos
 - **Tooltips informativos** con actividad de GitHub
 - **Vista responsive** para desktop y móvil
@@ -96,8 +96,8 @@ CLASSROOM_NAME=your_classroom_name
 
 ### Dashboard Principal
 - **Estadísticas generales**: Total de estudiantes, assignments, puntuación promedio
-- **Tabla de ranking**: Ordenada por tiempo de resolución
-- **Filtros dinámicos**: Por estado, tiempo, porcentaje
+- **Tabla de ranking**: Ordenada por Tiempo dedicado
+- **Filtros dinámicos**: Por estado, tiempo, Progreso
 - **Ordenamiento**: Por columnas individuales
 
 ### Sistema de Autenticación
@@ -108,7 +108,7 @@ CLASSROOM_NAME=your_classroom_name
 ### Sincronización de Datos
 - **GitHub Classroom**: Obtiene assignments y estudiantes
 - **Calificaciones**: Sincroniza puntuaciones
-- **Tiempo de resolución**: Calcula tiempo desde fork hasta completado
+- **Tiempo dedicado**: Calcula tiempo desde fork hasta completado
 - **Estado de fork**: Detecta si el estudiante hizo fork
 
 ## Uso
@@ -134,7 +134,7 @@ python sync-classroom.py
 
 El dashboard muestra:
 - **Progreso individual** de cada estudiante
-- **Tiempo de resolución** de assignments
+- **Tiempo dedicado** de assignments
 - **Actividad reciente** en GitHub
 - **Estadísticas comparativas**
 

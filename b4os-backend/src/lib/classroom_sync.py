@@ -422,7 +422,7 @@ class ClassroomSupabaseSync:
     
     def calculate_resolution_time(self, created_at: str, updated_at: str) -> Optional[int]:
         """
-        Calculate resolution time in hours between repository creation and last update.
+        Calculate Time Spent in hours between repository creation and last update.
         This represents the time from fork creation to reaching maximum score.
         
         Args:
@@ -430,7 +430,7 @@ class ClassroomSupabaseSync:
             updated_at: Repository last update timestamp (when max score was reached)
             
         Returns:
-            Resolution time in hours or None if calculation fails
+            Time Spent in hours or None if calculation fails
         """
         try:
             if not created_at or not updated_at:
@@ -447,7 +447,7 @@ class ClassroomSupabaseSync:
             return resolution_hours
             
         except Exception as e:
-            logger.error(f"Error calculating resolution time: {e}")
+            logger.error(f"Error calculating Time Spent: {e}")
             return None
     
     def refresh_admin_leaderboard(self) -> None:
@@ -468,8 +468,8 @@ class ClassroomSupabaseSync:
                 logger.warning("No students found for leaderboard")
                 return
             
-            # Get all grades
-            grades_result = self.supabase.table('grades').select('github_username, assignment_name, points_awarded').execute()
+            # Get all grades (including fork_created_at to count accepted assignments)
+            grades_result = self.supabase.table('grades').select('github_username, assignment_name, points_awarded, fork_created_at').execute()
             
             # Get all assignments
             assignments_result = self.supabase.table('assignments').select('name, points_available').execute()
@@ -491,7 +491,7 @@ class ClassroomSupabaseSync:
                         assignment_points[assignment_name] = max_points
                         logger.info(f"Using max points ({max_points}) as reference for assignment: {assignment_name}")
 
-            # Get total number of assignments in the system for percentage calculation
+            # Get total number of assignments in the system for progress calculation
             total_system_assignments = len(assignments_result.data) if assignments_result.data else 1
 
             # Calculate leaderboard data for each student
@@ -508,22 +508,18 @@ class ClassroomSupabaseSync:
                 total_score = sum(grade['points_awarded'] for grade in student_grades if grade['points_awarded'])
                 total_possible = sum(assignment_points.get(grade['assignment_name'], 0) for grade in student_grades)
 
-                # Calculate percentage as: sum of individual percentages / total assignments in system
-                sum_of_percentages = sum(
+                # Calculate progress as: sum of individual progresss / total assignments in system
+                sum_of_progresss = sum(
                     (grade['points_awarded'] / assignment_points.get(grade['assignment_name'], 1)) * 100
                     for grade in student_grades
                     if grade['points_awarded'] and assignment_points.get(grade['assignment_name'], 0) > 0
                 )
-                percentage = round(sum_of_percentages / total_system_assignments)
+                progress = round(sum_of_progresss / total_system_assignments)
 
-                # Count unique assignments that have been accepted (have fork_created_at)
-                unique_assignments = set(
-                    grade['assignment_name'] for grade in student_grades
-                    if grade.get('fork_created_at') is not None
-                )
-                assignments_completed = len(unique_assignments)
+                # Count unique assignments where student has a grade
+                assignments_completed = len(set(g['assignment_name'] for g in student_grades))
                 
-                # Calculate resolution time only if student has a fork
+                # Calculate Time Spent only if student has a fork
                 if has_fork:
                     resolution_time_hours = self.calculate_resolution_time(
                         student['fork_created_at'], 
@@ -531,7 +527,7 @@ class ClassroomSupabaseSync:
                     )
                 else:
                     resolution_time_hours = None
-                    logger.info(f"Student {github_username} has no fork - skipping resolution time calculation")
+                    logger.info(f"Student {github_username} has no fork - skipping Time Spent calculation")
                 
                 leaderboard_data.append({
                     'github_username': github_username,
@@ -541,22 +537,22 @@ class ClassroomSupabaseSync:
                     'has_fork': has_fork,
                     'total_score': total_score,
                     'total_possible': total_possible,
-                    'percentage': percentage,
+                    'progress': progress,
                     'assignments_completed': assignments_completed
                 })
             
             # Sort by ranking criteria: 
-            # 1. Resolution time ASC (who solved fastest)
-            # 2. Percentage DESC (higher score as tiebreaker)
+            # 1. Time Spent ASC (who solved fastest)
+            # 2. progress DESC (higher score as tiebreaker)
             # 3. Username ASC (alphabetical as final tiebreaker)
             leaderboard_data.sort(key=lambda x: (
                 x['resolution_time_hours'] if x['resolution_time_hours'] is not None else 999999,
-                -x['percentage'],  # Negative for descending order
+                -x['progress'],  # Negative for descending order
                 x['github_username']
             ))
             
             # Log ranking for verification
-            logger.info("Ranking by resolution time (fastest to slowest):")
+            logger.info("Ranking by Time Spent (fastest to slowest):")
             for i, student in enumerate(leaderboard_data[:5], 1):  # Log top 5
                 resolution_time = student['resolution_time_hours']
                 if resolution_time is not None:
@@ -565,7 +561,7 @@ class ClassroomSupabaseSync:
                     time_str = f"{hours}d {minutes}h" if hours > 0 else f"{minutes}h"
                 else:
                     time_str = "N/A"
-                logger.info(f"  {i}. {student['github_username']}: {time_str} ({student['percentage']}%)")
+                logger.info(f"  {i}. {student['github_username']}: {time_str} ({student['progress']}%)")
             
             # Add ranking positions
             for i, student in enumerate(leaderboard_data, 1):

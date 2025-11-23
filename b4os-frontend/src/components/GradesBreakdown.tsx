@@ -19,7 +19,7 @@ interface GradeBreakdown {
   assignment_name: string
   points_awarded: number | null
   points_available: number | null
-  percentage: number | null
+  progress: number | null
   fork_created_at?: string | null
   fork_updated_at?: string | null
 }
@@ -96,36 +96,36 @@ export default function GradesBreakdown({ username, isExpanded, selectedAssignme
     }
   }
 
-  const getStatusIcon = (percentage: number | null) => {
-    if (percentage === null || percentage === 0) {
+  const getStatusIcon = (progress: number | null) => {
+    if (progress === null || progress === 0) {
       return <Clock className="w-4 h-4 text-gray-400" />
-    } else if (percentage >= 80) {
+    } else if (progress >= 80) {
       return <CheckCircle className="w-4 h-4 text-green-500" />
-    } else if (percentage >= 60) {
+    } else if (progress >= 60) {
       return <Trophy className="w-4 h-4 text-yellow-500" />
     } else {
       return <XCircle className="w-4 h-4 text-red-500" />
     }
   }
 
-  const getStatusColor = (percentage: number | null) => {
-    if (percentage === null || percentage === 0) {
+  const getStatusColor = (progress: number | null) => {
+    if (progress === null || progress === 0) {
       return 'text-gray-500'
-    } else if (percentage >= 80) {
+    } else if (progress >= 80) {
       return 'text-green-600'
-    } else if (percentage >= 60) {
+    } else if (progress >= 60) {
       return 'text-yellow-600'
     } else {
       return 'text-red-600'
     }
   }
 
-  const getProgressColor = (percentage: number | null) => {
-    if (percentage === null || percentage === 0) {
+  const getprogressColor = (progress: number | null) => {
+    if (progress === null || progress === 0) {
       return 'bg-gray-200'
-    } else if (percentage >= 80) {
+    } else if (progress >= 80) {
       return 'bg-green-500'
-    } else if (percentage >= 60) {
+    } else if (progress >= 60) {
       return 'bg-yellow-500'
     } else {
       return 'bg-red-500'
@@ -138,12 +138,12 @@ export default function GradesBreakdown({ username, isExpanded, selectedAssignme
       return { status: 'none', text: t('grades_breakdown.status.no_reviewer'), color: 'text-gray-500' }
     }
     
-    const hasInProgress = data.reviewers.some((r: unknown) => (r as { status: string }).status === 'in_progress')
+    const hasInprogress = data.reviewers.some((r: unknown) => (r as { status: string }).status === 'in_progress')
     const hasCompleted = data.reviewers.some((r: unknown) => (r as { status: string }).status === 'completed')
     
     if (hasCompleted) {
       return { status: 'completed', text: t('grades_breakdown.status.reviewed'), color: 'text-green-600' }
-    } else if (hasInProgress) {
+    } else if (hasInprogress) {
       return { status: 'in_progress', text: t('grades_breakdown.status.in_review'), color: 'text-amber-600' }
     } else {
       return { status: 'pending', text: t('grades_breakdown.status.pending'), color: 'text-blue-600' }
@@ -234,7 +234,7 @@ export default function GradesBreakdown({ username, isExpanded, selectedAssignme
                 {/* Header with status icon and title */}
                 <div className="flex items-start gap-2 mb-1.5">
                   <div className="flex-shrink-0 mt-0.5">
-                    {getStatusIcon(grade.percentage)}
+                    {getStatusIcon(grade.progress)}
                   </div>
                   <div className="flex-1 min-w-0">
                     <h5 className="font-medium text-gray-900 text-sm truncate leading-tight">
@@ -245,13 +245,13 @@ export default function GradesBreakdown({ username, isExpanded, selectedAssignme
                       const updatedDate = grade.fork_updated_at ? new Date(grade.fork_updated_at) : null
                       const isSameDay = updatedDate && createdDate.toDateString() === updatedDate.toDateString()
                       const duration = calculateDurationDays(grade.fork_created_at, grade.fork_updated_at)
-                      const hasProgress = grade.percentage !== null && grade.percentage > 0
+                      const hasprogress = grade.progress !== null && grade.progress > 0
 
                       return (
                         <div className="flex items-center gap-1.5 mt-1 text-[11px] text-gray-600 leading-tight">
                           <Calendar className="w-3 h-3 text-gray-400 flex-shrink-0" />
                           <span className="whitespace-nowrap">
-                            {!hasProgress ? (
+                            {!hasprogress ? (
                               // Sin progreso: solo mostrar fecha de inicio
                               <>{formatDateShort(grade.fork_created_at)}</>
                             ) : isSameDay || !updatedDate ? (
@@ -298,9 +298,9 @@ export default function GradesBreakdown({ username, isExpanded, selectedAssignme
 
                 {/* Score and progress */}
                 <div className="flex items-center gap-2 mb-1">
-                  <div className={`text-left ${getStatusColor(grade.percentage)}`}>
+                  <div className={`text-left ${getStatusColor(grade.progress)}`}>
                     <div className="text-base font-bold leading-tight">
-                      {grade.percentage || 0}%
+                      {grade.progress || 0}%
                     </div>
                     <div className="text-[10px] text-gray-500 leading-tight">
                       {grade.points_awarded || 0}/{grade.points_available || 0}
@@ -309,8 +309,8 @@ export default function GradesBreakdown({ username, isExpanded, selectedAssignme
                   <div className="flex-1">
                     <div className="w-full bg-gray-200 rounded-full h-1.5">
                       <div
-                        className={`h-1.5 rounded-full transition-all duration-300 ${getProgressColor(grade.percentage)}`}
-                        style={{ width: `${Math.min(grade.percentage || 0, 100)}%` }}
+                        className={`h-1.5 rounded-full transition-all duration-300 ${getprogressColor(grade.progress)}`}
+                        style={{ width: `${Math.min(grade.progress || 0, 100)}%` }}
                       />
                     </div>
                   </div>
@@ -319,11 +319,11 @@ export default function GradesBreakdown({ username, isExpanded, selectedAssignme
                 {/* Status and Review Info */}
                 <div className="flex items-center justify-between text-[10px]">
                   <div className="text-gray-600">
-                    {grade.percentage === null || grade.percentage === 0 ? (
+                    {grade.progress === null || grade.progress === 0 ? (
                       <span className="text-gray-500">Sin PoW</span>
-                    ) : grade.percentage >= 80 ? (
+                    ) : grade.progress >= 80 ? (
                       <span className="text-green-600 font-medium">Excelente</span>
-                    ) : grade.percentage >= 60 ? (
+                    ) : grade.progress >= 60 ? (
                       <span className="text-yellow-600 font-medium">Bueno</span>
                     ) : (
                       <span className="text-red-600 font-medium">Necesita mejorar</span>

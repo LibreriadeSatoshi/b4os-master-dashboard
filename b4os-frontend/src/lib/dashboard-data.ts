@@ -12,7 +12,7 @@ interface LeaderboardEntry {
   github_username: string
   total_score: number
   total_possible: number
-  percentage: number
+  progress: number
   assignments_completed: number
   resolution_time_hours?: number | null
   has_fork?: boolean
@@ -23,7 +23,7 @@ export interface DashboardData {
     github_username: string
     total_score: number
     total_possible: number
-    percentage: number
+    progress: number
     assignments_completed: number
     resolution_time_hours?: number
     has_fork?: boolean
@@ -95,7 +95,7 @@ async function getLeaderboard() {
           github_username: student.github_username,
           total_score: student.total_score,
           total_possible: student.total_possible,
-          percentage: student.percentage,
+          progress: student.percentage, // DB column is 'percentage', frontend uses 'progress'
           assignments_completed: student.assignments_completed,
           resolution_time_hours: student.resolution_time_hours || undefined,
           has_fork: !!student.has_fork
@@ -109,7 +109,7 @@ async function getLeaderboard() {
               github_username: student.github_username,
               total_score: 0,
               total_possible: 0,
-              percentage: 0,
+              progress: 0,
               assignments_completed: 0,
               resolution_time_hours: undefined,
               has_fork: false
@@ -167,7 +167,7 @@ async function getLeaderboard() {
       github_username: student.github_username,
       total_score: student.total_score,
       total_possible: student.total_possible,
-      percentage: student.total_possible > 0
+      progress: student.total_possible > 0
         ? Math.round((student.total_score / student.total_possible) * 100)
         : 0,
       assignments_completed: acceptedAssignments.get(student.github_username)?.size || 0,
@@ -183,7 +183,7 @@ async function getLeaderboard() {
             github_username: student.github_username,
             total_score: 0,
             total_possible: 0,
-            percentage: 0,
+            progress: 0,
             assignments_completed: 0,
             resolution_time_hours: undefined,
             has_fork: false
@@ -192,7 +192,7 @@ async function getLeaderboard() {
       })
     }
 
-    return leaderboard.sort((a, b) => b.percentage - a.percentage)
+    return leaderboard.sort((a, b) => b.progress - a.progress)
   } catch (error) {
     console.error('Error in getLeaderboard:', error)
     return []
@@ -330,7 +330,7 @@ async function getGrades() {
   try {
     const { data, error } = await supabase
       .from('grades')
-      .select('github_username, assignment_name, points_awarded')
+      .select('github_username, assignment_name, points_awarded, fork_created_at, fork_updated_at')
       .order('github_username')
 
     if (error) throw error
