@@ -295,7 +295,56 @@
     "no_reviewers": "No reviewers assigned",
     "no_comments": "No comments",
     "confirm_remove": "Are you sure you want to remove this reviewer?",
-    "options_menu": "Reviewer options"
+    "options_menu": "Reviewer options",
+    "checklist": {
+      "title": "Evaluation Checklist",
+      "progress": "Evaluation Progress",
+      "criteria_count": "{completed}/{total} criteria",
+      "partial_score": "Partial Score",
+      "complete_button": "Complete Review",
+      "evaluate_more": "Evaluate {count} more criteria",
+      "continue": "Continue",
+      "in_progress_collapsed": "Review in progress - {count} criteria evaluated",
+      "pending_message": "Open the student repository and review the code before starting the evaluation.",
+      "categories": {
+        "code_quality": "Code Quality",
+        "functionality": "Functionality",
+        "documentation": "Documentation"
+      },
+      "criteria": {
+        "readability": {
+          "name": "Readability",
+          "description": "Clear names, consistent formatting, easy to read code"
+        },
+        "organization": {
+          "name": "Organization",
+          "description": "Logical structure, modularity, separation of concerns"
+        },
+        "correctness": {
+          "name": "Correctness",
+          "description": "Code works correctly and meets requirements"
+        },
+        "error_handling": {
+          "name": "Error Handling",
+          "description": "Proper handling of error cases and exceptions"
+        },
+        "comments": {
+          "name": "Comments",
+          "description": "Code commented where necessary, useful comments"
+        },
+        "readme": {
+          "name": "README",
+          "description": "Clear project documentation and how to run it"
+        }
+      },
+      "scores": {
+        "1": "Poor",
+        "2": "Needs Improvement",
+        "3": "Acceptable",
+        "4": "Good",
+        "5": "Excellent"
+      }
+    }
   },
   "assignment_selector": {
     "title": "Select Assignment",

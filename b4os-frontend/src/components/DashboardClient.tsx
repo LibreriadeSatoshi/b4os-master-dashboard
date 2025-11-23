@@ -897,7 +897,7 @@ export default function DashboardClient({ initialData, assignments }: DashboardC
             <ReviewSystem
               studentUsername={selectedStudentForReview.username}
               assignmentName={selectedStudentForReview.assignmentName}
-              repositoryUrl={`https://github.com/${selectedStudentForReview.username}/${selectedStudentForReview.assignmentName}`}
+              repositoryUrl={`https://github.com/B4OS-Dev/${selectedStudentForReview.assignmentName}-${selectedStudentForReview.username}`}
               onClose={closeReviewModal}
               onDataUpdate={handleReviewDataUpdate}
             />
