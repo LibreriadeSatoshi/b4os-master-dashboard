@@ -119,7 +119,7 @@ export function isReviewComplete(evaluations: CriterionEvaluation[]): boolean {
 }
 
 // Get evaluation progress
-export function getEvaluationprogress(evaluations: CriterionEvaluation[]): {
+export function getEvaluationProgress(evaluations: CriterionEvaluation[]): {
   completed: number
   total: number
   progress: number

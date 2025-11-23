@@ -375,6 +375,43 @@
     "title": "B4OS Dashboard",
     "description": "Monitoreo en tiempo real del programa Bitcoin 4 Open Source"
   },
+  "review": {
+    "pending_message": "Abre el repositorio del estudiante y revisa el código antes de iniciar la evaluación.",
+    "checklist_title": "Checklist de Evaluación",
+    "evaluation_progress": "Progreso de Evaluación",
+    "criteria": "criterios",
+    "partial_score": "Score Parcial",
+    "complete_review": "Completar Revisión",
+    "evaluate_more": "Evalúa {count} criterios más",
+    "categories": {
+      "code_quality": "Calidad de Código",
+      "functionality": "Funcionalidad",
+      "documentation": "Documentación"
+    },
+    "criteria_names": {
+      "readability": "Legibilidad",
+      "organization": "Organización",
+      "correctness": "Correctitud",
+      "error_handling": "Manejo de Errores",
+      "comments": "Comentarios",
+      "readme": "README"
+    },
+    "criteria_descriptions": {
+      "readability": "Nombres claros, formato consistente, código fácil de leer",
+      "organization": "Estructura lógica, modularidad, separación de responsabilidades",
+      "correctness": "El código funciona correctamente y cumple los requisitos",
+      "error_handling": "Manejo apropiado de casos de error y excepciones",
+      "comments": "Código comentado donde es necesario, comentarios útiles",
+      "readme": "Documentación clara del proyecto y cómo ejecutarlo"
+    },
+    "score_labels": {
+      "1": "Deficiente",
+      "2": "Necesita Mejora",
+      "3": "Aceptable",
+      "4": "Bueno",
+      "5": "Excelente"
+    }
+  },
   "metadata": {
     "title": "B4OS Challenges - Master Bitcoin Development",
     "description": "Learn Bitcoin and Lightning Network development through interactive coding challenges"

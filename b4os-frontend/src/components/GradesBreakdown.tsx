@@ -336,25 +336,25 @@ export default function GradesBreakdown({ username, isExpanded, selectedAssignme
                       {reviewStatus.text}
                     </span>
                     {(reviewCounts.reviewers > 0 || reviewCounts.comments > 0) && (
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1.5">
                         {reviewCounts.reviewers > 0 && (
                           <button
                             onClick={() => onOpenReview?.(username, grade.assignment_name)}
-                            className="flex items-center gap-0.5 hover:bg-green-50 hover:text-green-600 px-1 py-0.5 rounded transition-colors cursor-pointer"
+                            className="flex items-center gap-0.5 text-green-600 hover:bg-green-50 px-1 py-0.5 rounded transition-colors cursor-pointer"
                             title="Ver revisores"
                           >
-                            <UserCheck className="w-2.5 h-2.5" />
-                            <span>{reviewCounts.reviewers}</span>
+                            <UserCheck className="w-3 h-3" />
+                            <span className="font-medium">{reviewCounts.reviewers}</span>
                           </button>
                         )}
                         {reviewCounts.comments > 0 && (
                           <button
                             onClick={() => onOpenReview?.(username, grade.assignment_name)}
-                            className="flex items-center gap-0.5 hover:bg-blue-50 hover:text-blue-600 px-1 py-0.5 rounded transition-colors cursor-pointer"
+                            className="flex items-center gap-0.5 text-gray-600 hover:bg-blue-50 hover:text-blue-600 px-1 py-0.5 rounded transition-colors cursor-pointer"
                             title="Ver comentarios"
                           >
-                            <MessageSquare className="w-2.5 h-2.5" />
-                            <span>{reviewCounts.comments}</span>
+                            <MessageSquare className="w-3 h-3" />
+                            <span className="font-medium">{reviewCounts.comments}</span>
                           </button>
                         )}
                       </div>

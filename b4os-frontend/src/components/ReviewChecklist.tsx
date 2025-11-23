@@ -2,14 +2,13 @@
 
 import { useState } from "react";
 import { ChevronDown, ChevronRight, CheckCircle2, Circle } from "lucide-react";
+import { useTranslation } from "@/hooks/useTranslation";
 import {
   CRITERIA_BY_CATEGORY,
-  CATEGORY_NAMES,
-  SCORE_LABELS,
   type CriterionEvaluation,
   type ReviewCriterion,
   calculateWeightedScore,
-  getEvaluationprogress,
+  getEvaluationProgress,
   isReviewComplete
 } from "@/data/reviewCriteria";
 
@@ -49,7 +48,8 @@ export default function ReviewChecklist({
     onEvaluationChange({ criterionId, score });
   };
 
-  const progress = getEvaluationprogress(evaluations);
+  const { t } = useTranslation();
+  const progress = getEvaluationProgress(evaluations);
   const canComplete = isReviewComplete(evaluations);
   const currentScore = calculateWeightedScore(evaluations);
 
@@ -67,10 +67,10 @@ export default function ReviewChecklist({
       <div className="flex items-center justify-between bg-gray-50 rounded-lg p-3 border border-gray-200">
         <div className="flex items-center gap-3">
           <span className="text-sm font-medium text-gray-700">
-            Progreso de Evaluación
+            {t('review.evaluation_progress')}
           </span>
           <span className="text-sm text-gray-500">
-            {progress.completed}/{progress.total} criterios
+            {progress.completed}/{progress.total} {t('review.criteria')}
           </span>
         </div>
         <div className="flex items-center gap-3">
@@ -108,7 +108,7 @@ export default function ReviewChecklist({
                     <ChevronRight className="w-4 h-4 text-gray-500" />
                   )}
                   <span className="font-medium text-gray-900">
-                    {CATEGORY_NAMES[category] || category}
+                    {t(`review.categories.${category}`)}
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
@@ -148,7 +148,7 @@ export default function ReviewChecklist({
       <div className="flex items-center justify-between bg-white border border-gray-200 rounded-lg p-4">
         <div className="flex items-center gap-4">
           <div>
-            <span className="text-sm text-gray-500">Score Parcial</span>
+            <span className="text-sm text-gray-500">{t('review.partial_score')}</span>
             <div className="flex items-center gap-2">
               <span className="text-2xl font-bold text-gray-900">
                 {currentScore > 0 ? currentScore.toFixed(1) : '—'}
@@ -185,7 +185,7 @@ export default function ReviewChecklist({
               : 'bg-gray-100 text-gray-400 cursor-not-allowed'
           }`}
         >
-          {canComplete ? 'Completar Revisión' : `Evalúa ${progress.total - progress.completed} criterios más`}
+          {canComplete ? t('review.complete_review') : t('review.evaluate_more', { count: progress.total - progress.completed })}
         </button>
       </div>
     </div>
@@ -204,6 +204,7 @@ function CriterionRow({
   onScoreClick: (score: number) => void;
   disabled: boolean;
 }) {
+  const { t } = useTranslation();
   const [isHovering, setIsHovering] = useState<number | null>(null);
 
   return (
@@ -217,10 +218,10 @@ function CriterionRow({
           )}
           <div className="min-w-0">
             <p className={`font-medium ${evaluation ? 'text-gray-900' : 'text-gray-600'}`}>
-              {criterion.name}
+              {t(`review.criteria_names.${criterion.id}`)}
             </p>
             <p className="text-sm text-gray-500 truncate">
-              {criterion.description}
+              {t(`review.criteria_descriptions.${criterion.id}`)}
             </p>
           </div>
         </div>
@@ -248,12 +249,12 @@ function CriterionRow({
                       : 'bg-emerald-500 text-white'
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 } ${disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
-                title={SCORE_LABELS[score]}
+                title={t(`review.score_labels.${score}`)}
               >
                 {score}
                 {showLabel && !disabled && (
                   <span className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-xs text-gray-500 whitespace-nowrap">
-                    {SCORE_LABELS[score]}
+                    {t(`review.score_labels.${score}`)}
                   </span>
                 )}
               </button>

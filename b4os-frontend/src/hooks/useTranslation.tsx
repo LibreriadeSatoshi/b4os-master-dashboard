@@ -334,7 +334,7 @@ type Language = 'es' | 'en'
 interface TranslationContextType {
   language: Language
   setLanguage: (lang: Language) => void
-  t: (key: string) => string
+  t: (key: string, variables?: Record<string, string | number>) => string
   translations: TranslationKeys | null
 }
 

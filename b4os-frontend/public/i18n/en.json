@@ -375,6 +375,43 @@
     "title": "B4OS Dashboard",
     "description": "Real-time monitoring of the Bitcoin 4 Open Source program"
   },
+  "review": {
+    "pending_message": "Open the student's repository and review the code before starting the evaluation.",
+    "checklist_title": "Evaluation Checklist",
+    "evaluation_progress": "Evaluation Progress",
+    "criteria": "criteria",
+    "partial_score": "Partial Score",
+    "complete_review": "Complete Review",
+    "evaluate_more": "Evaluate {count} more criteria",
+    "categories": {
+      "code_quality": "Code Quality",
+      "functionality": "Functionality",
+      "documentation": "Documentation"
+    },
+    "criteria_names": {
+      "readability": "Readability",
+      "organization": "Organization",
+      "correctness": "Correctness",
+      "error_handling": "Error Handling",
+      "comments": "Comments",
+      "readme": "README"
+    },
+    "criteria_descriptions": {
+      "readability": "Clear names, consistent formatting, easy to read code",
+      "organization": "Logical structure, modularity, separation of concerns",
+      "correctness": "Code works correctly and meets requirements",
+      "error_handling": "Proper handling of error cases and exceptions",
+      "comments": "Code commented where necessary, useful comments",
+      "readme": "Clear project documentation and how to run it"
+    },
+    "score_labels": {
+      "1": "Poor",
+      "2": "Needs Improvement",
+      "3": "Acceptable",
+      "4": "Good",
+      "5": "Excellent"
+    }
+  },
   "metadata": {
     "title": "B4OS Challenges - Master Bitcoin Development",
     "description": "Learn Bitcoin and Lightning Network development through interactive coding challenges"
