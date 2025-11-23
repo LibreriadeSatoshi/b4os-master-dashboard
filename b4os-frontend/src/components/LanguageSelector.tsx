@@ -45,7 +45,7 @@ export default function LanguageSelector() {
         ref={buttonRef}
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center gap-2 hover:bg-white/10 p-2 rounded-lg transition-colors"
-        title="Cambiar idioma / Change language"
+        title={t('common.change_language')}
       >
         <Globe className="w-4 h-4 text-white" />
         <span className="text-sm font-medium text-white hidden md:block">
@@ -71,7 +71,7 @@ export default function LanguageSelector() {
             }}
           >
             <div className="px-3 py-2 border-b border-gray-100">
-              <p className="text-sm font-medium text-gray-900">Idioma / Language</p>
+              <p className="text-sm font-medium text-gray-900">{t('common.language')}</p>
             </div>
             
             {languages.map((lang) => (

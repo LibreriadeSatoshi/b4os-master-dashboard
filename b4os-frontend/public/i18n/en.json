@@ -67,7 +67,12 @@
     "sign_out": "Sign Out",
     "continue_with": "Continue with",
     "by_signing_in": "By signing in, you agree to participate in the B4OS technical assessment program.",
-    "agreement": "By signing in, you agree to participate in the B4OS technical assessment program."
+    "agreement": "By signing in, you agree to participate in the B4OS technical assessment program.",
+    "ascending": "Ascending",
+    "descending": "Descending",
+    "of": "of",
+    "language": "Language",
+    "change_language": "Change language"
   },
   "navigation": {
     "dashboard": "Dashboard",
@@ -295,6 +300,12 @@
     "quality_score": {
       "label": "Score:",
       "title": "Score {score}/10"
+    },
+    "errors": {
+      "user_info": "Error: Could not get user information. Please sign in again.",
+      "evaluate_all_criteria": "Please evaluate all criteria before completing the review",
+      "updating_score": "Error updating score",
+      "generic": "Error"
     },
     "assigned_on": "Assigned on {date}",
     "no_reviewers": "No reviewers assigned",

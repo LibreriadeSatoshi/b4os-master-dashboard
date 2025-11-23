@@ -132,7 +132,7 @@ export default function ReviewSystem({
     }
 
     if (!session?.user?.username) {
-      alert("Error: No se pudo obtener la información del usuario. Por favor, inicia sesión nuevamente.");
+      alert(t('review_system.errors.user_info'));
       return;
     }
 
@@ -165,7 +165,7 @@ export default function ReviewSystem({
     if (!newComment.trim()) return;
 
     if (!session?.user?.username) {
-      alert("Error: No se pudo obtener la información del usuario. Por favor, inicia sesión nuevamente.");
+      alert(t('review_system.errors.user_info'));
       return;
     }
 
@@ -208,7 +208,7 @@ export default function ReviewSystem({
     const evaluations = criteriaEvaluations.get(reviewerId) || [];
 
     if (!isReviewComplete(evaluations)) {
-      alert("Por favor evalúa todos los criterios antes de completar la revisión");
+      alert(t('review_system.errors.evaluate_all_criteria'));
       return;
     }
 
@@ -218,7 +218,7 @@ export default function ReviewSystem({
     // Update score first
     const scoreResult = await SupabaseService.updateCodeQualityScore(reviewerId, Math.round(finalScore));
     if (!scoreResult.success) {
-      alert(`Error actualizando score: ${scoreResult.error}`);
+      alert(`${t('review_system.errors.updating_score')}: ${scoreResult.error}`);
       return;
     }
 
@@ -250,7 +250,7 @@ export default function ReviewSystem({
   };
 
   const handleRemoveReviewer = async (reviewerId: number) => {
-    if (confirm('¿Estás seguro de que quieres remover este revisor?')) {
+    if (confirm(t('review_system.confirm_remove'))) {
       try {
         const response = await fetch(`/api/reviewers?id=${reviewerId}`, {
           method: 'DELETE'
@@ -503,7 +503,7 @@ export default function ReviewSystem({
                     <button
                       onClick={() => setOpenMenuId(openMenuId === reviewer.id ? null : reviewer.id)}
                       className="w-6 h-6 bg-gray-50 hover:bg-gray-100 text-gray-600 hover:text-gray-700 rounded-full flex items-center justify-center transition-colors"
-                      title="Opciones del revisor"
+                      title={t('review_system.options_menu')}
                     >
                       <MoreVertical className="w-4 h-4" />
                     </button>
@@ -586,7 +586,7 @@ export default function ReviewSystem({
                               onClick={() => setActiveReviewerId(reviewer.id)}
                               className="px-3 py-1 text-xs font-medium text-cyan-700 hover:text-cyan-800 border border-cyan-300 hover:border-cyan-400 rounded transition-colors"
                             >
-                              Continuar
+                              {t('review_system.checklist.continue')}
                             </button>
                           )}
                         </div>
@@ -622,7 +622,7 @@ export default function ReviewSystem({
                   {reviewer.status === "in_progress" && !isActive && (
                     <div className="border-t border-gray-100 px-4 py-2 bg-cyan-50">
                       <p className="text-xs text-cyan-700">
-                        Revisión en progreso - {reviewerEvaluations.length} criterios evaluados
+                        {t('review_system.checklist.in_progress_collapsed', { count: reviewerEvaluations.length })}
                       </p>
                     </div>
                   )}

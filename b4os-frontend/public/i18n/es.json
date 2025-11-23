@@ -67,7 +67,12 @@
     "sign_out": "Cerrar Sesión",
     "continue_with": "Continuar con",
     "by_signing_in": "Al iniciar sesión, aceptas participar en el programa de evaluación técnica B4OS.",
-    "agreement": "Al iniciar sesión, aceptas participar en el programa de evaluación técnica B4OS."
+    "agreement": "Al iniciar sesión, aceptas participar en el programa de evaluación técnica B4OS.",
+    "ascending": "Ascendente",
+    "descending": "Descendente",
+    "of": "de",
+    "language": "Idioma",
+    "change_language": "Cambiar idioma"
   },
   "navigation": {
     "dashboard": "Dashboard",
@@ -295,6 +300,12 @@
     "quality_score": {
       "label": "Puntaje:",
       "title": "Puntaje {score}/10"
+    },
+    "errors": {
+      "user_info": "Error: No se pudo obtener la información del usuario. Por favor, inicia sesión nuevamente.",
+      "evaluate_all_criteria": "Por favor evalúa todos los criterios antes de completar la revisión",
+      "updating_score": "Error actualizando score",
+      "generic": "Error"
     },
     "assigned_on": "Asignado el {date}",
     "no_reviewers": "No hay revisores asignados",

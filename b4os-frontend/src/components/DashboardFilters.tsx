@@ -172,7 +172,7 @@ export default function DashboardFilters({ onFiltersChange, totalStudents, filte
                       ? 'bg-orange-50 border-orange-200 text-orange-700'
                       : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
                   }`}
-                  title={`${desc} ${filters.sortBy === key ? (filters.sortOrder === 'asc' ? '(Ascendente)' : '(Descendente)') : ''}`}
+                  title={`${desc} ${filters.sortBy === key ? (filters.sortOrder === 'asc' ? `(${t('common.ascending')})` : `(${t('common.descending')})`) : ''}`}
                 >
                   <div className="flex items-center gap-1">
                     {label}
@@ -181,13 +181,9 @@ export default function DashboardFilters({ onFiltersChange, totalStudents, filte
                   <div className="text-xs text-gray-500 text-center leading-tight">
                     {filters.sortBy === key && (
                       <span className="font-medium">
-                        {filters.sortOrder === 'asc' 
-                          ? (key === 'resolution_time' ? 'Más rápido primero' : 
-                             key === 'progress' ? 'Menor puntaje primero' :
-                             'Menos completados primero')
-                          : (key === 'resolution_time' ? 'Más lento primero' : 
-                             key === 'progress' ? 'Mayor puntaje primero' :
-                             'Más completados primero')
+                        {filters.sortOrder === 'asc'
+                          ? t(`filters.sort_options.${key}.asc`)
+                          : t(`filters.sort_options.${key}.desc`)
                         }
                       </span>
                     )}
