@@ -18,7 +18,8 @@ import {
   User,
   MoreVertical,
   Trash2,
-  ClipboardList
+  ClipboardList,
+  Calendar
 } from "lucide-react";
 
 interface ReviewSystemProps {
@@ -56,6 +57,12 @@ export default function ReviewSystem({
   // Evaluaciones de criterios por revisor (reviewerId -> evaluations)
   const [criteriaEvaluations, setCriteriaEvaluations] = useState<Map<number, CriterionEvaluation[]>>(new Map());
   const [activeReviewerId, setActiveReviewerId] = useState<number | null>(null);
+  // Challenge dates
+  const [challengeDates, setChallengeDates] = useState<{
+    startDate: string | null;
+    endDate: string | null;
+    duration: number | null;
+  }>({ startDate: null, endDate: null, duration: null });
 
   useEffect(() => {
     loadData();
@@ -78,22 +85,33 @@ export default function ReviewSystem({
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const [reviewersData, commentsData, availableReviewersData] = await Promise.all([
+      const [reviewersData, commentsData, availableReviewersData, gradesData] = await Promise.all([
         SupabaseService.getStudentReviewersByStudent(studentUsername),
         SupabaseService.getReviewComments(studentUsername, assignmentName),
-        SupabaseService.getAvailableReviewers()
+        SupabaseService.getAvailableReviewers(),
+        SupabaseService.getStudentGradesBreakdown(studentUsername)
       ]);
 
       setReviewers(reviewersData.filter(r => r.assignment_name === assignmentName));
       setComments(commentsData);
       setAvailableReviewers(availableReviewersData);
 
-      console.log("Review data loaded:", {
-        reviewers: reviewersData.length,
-        comments: commentsData.length,
-        availableReviewers: availableReviewersData.length,
-        availableReviewersData
-      });
+      // Get dates for this specific assignment
+      const assignmentGrade = gradesData.find(g => g.assignment_name === assignmentName);
+      if (assignmentGrade) {
+        const startDate = assignmentGrade.fork_created_at || null;
+        const endDate = assignmentGrade.fork_updated_at || null;
+        let duration = null;
+
+        if (startDate && endDate && assignmentGrade.percentage && assignmentGrade.percentage > 0) {
+          const start = new Date(startDate);
+          const end = new Date(endDate);
+          const diffTime = Math.abs(end.getTime() - start.getTime());
+          duration = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+        }
+
+        setChallengeDates({ startDate, endDate, duration });
+      }
     } catch (error) {
       console.error("Error loading review data:", error);
     } finally {
@@ -308,6 +326,16 @@ export default function ReviewSystem({
     }
   };
 
+  const formatDateShort = (dateString: string | null) => {
+    if (!dateString) return null;
+    const date = new Date(dateString);
+    return date.toLocaleDateString('es-ES', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric'
+    });
+  };
+
   return (
     <>
       {isLoading ? (
@@ -342,21 +370,47 @@ export default function ReviewSystem({
         )}
       </div>
 
-      {/* Repository Link */}
+      {/* Repository Link & Challenge Dates */}
       {repositoryUrl && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <ExternalLink className="w-4 h-4 text-blue-600" />
-            <span className="text-sm font-medium text-blue-900">{t('review_system.repository_student')}</span>
+          <div className="flex items-center justify-between">
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-2">
+                <ExternalLink className="w-4 h-4 text-blue-600" />
+                <span className="text-sm font-medium text-blue-900">{t('review_system.repository_student')}</span>
+              </div>
+              <a
+                href={repositoryUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:text-blue-800 underline text-sm font-medium break-all"
+              >
+                {repositoryUrl}
+              </a>
+            </div>
+            {challengeDates.startDate && (
+              <div className="flex-shrink-0 ml-4 text-right">
+                <div className="flex items-center gap-1.5 text-xs text-gray-600">
+                  <Calendar className="w-3.5 h-3.5 text-gray-400" />
+                  <span>
+                    {challengeDates.duration ? (
+                      <>
+                        {formatDateShort(challengeDates.startDate)}
+                        {challengeDates.endDate && challengeDates.startDate !== challengeDates.endDate && (
+                          <span className="text-gray-400"> → {formatDateShort(challengeDates.endDate)}</span>
+                        )}
+                        <span className="ml-1.5 px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded text-[10px] font-medium">
+                          {challengeDates.duration} {challengeDates.duration > 1 ? t('grades_breakdown.duration.days') : t('grades_breakdown.duration.day')}
+                        </span>
+                      </>
+                    ) : (
+                      <>{formatDateShort(challengeDates.startDate)}</>
+                    )}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
-          <a
-            href={repositoryUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-600 hover:text-blue-800 underline text-sm font-medium break-all"
-          >
-            {repositoryUrl}
-          </a>
         </div>
       )}
 
