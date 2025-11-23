@@ -204,6 +204,11 @@
     "loading_grades": "Cargando calificaciones...",
     "no_grades": "No hay calificaciones disponibles",
     "retry_button": "Reintentar",
+    "duration": {
+      "day": "día",
+      "days": "días",
+      "day_short": "d"
+    },
     "actions": {
       "view_github_actions": "Ver GitHub Actions para esta asignación",
       "review_assignment": "Revisar esta asignación",

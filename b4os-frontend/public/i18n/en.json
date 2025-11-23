@@ -204,6 +204,11 @@
     "loading_grades": "Loading grades...",
     "no_grades": "No grades available",
     "retry_button": "Retry",
+    "duration": {
+      "day": "day",
+      "days": "days",
+      "day_short": "d"
+    },
     "actions": {
       "view_github_actions": "View GitHub Actions for this assignment",
       "review_assignment": "Review this assignment",

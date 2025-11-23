@@ -172,6 +172,15 @@ export default function GradesBreakdown({ username, isExpanded, selectedAssignme
     })
   }
 
+  const calculateDurationDays = (startDate: string | null | undefined, endDate: string | null | undefined): number => {
+    if (!startDate || !endDate) return 0
+    const start = new Date(startDate)
+    const end = new Date(endDate)
+    const diffTime = Math.abs(end.getTime() - start.getTime())
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+    return Math.max(1, diffDays) // Mínimo 1 día
+  }
+
   const getReviewCounts = (assignmentName: string) => {
     const data = reviewData[assignmentName]
     if (!data) return { reviewers: 0, comments: 0 }
@@ -231,23 +240,33 @@ export default function GradesBreakdown({ username, isExpanded, selectedAssignme
                     <h5 className="font-medium text-gray-900 text-sm truncate leading-tight">
                       {grade.assignment_name}
                     </h5>
-                    {(grade.fork_created_at || grade.fork_updated_at) && (() => {
-                      const createdDate = grade.fork_created_at ? new Date(grade.fork_created_at) : null
+                    {grade.fork_created_at && (() => {
+                      const createdDate = new Date(grade.fork_created_at)
                       const updatedDate = grade.fork_updated_at ? new Date(grade.fork_updated_at) : null
-                      const isSameDay = createdDate && updatedDate &&
-                        createdDate.toDateString() === updatedDate.toDateString()
+                      const isSameDay = updatedDate && createdDate.toDateString() === updatedDate.toDateString()
+                      const duration = calculateDurationDays(grade.fork_created_at, grade.fork_updated_at)
+                      const hasProgress = grade.percentage !== null && grade.percentage > 0
 
                       return (
                         <div className="flex items-center gap-1.5 mt-1 text-[11px] text-gray-600 leading-tight">
                           <Calendar className="w-3 h-3 text-gray-400 flex-shrink-0" />
                           <span className="whitespace-nowrap">
-                            {isSameDay ? (
-                              <>Iniciado: {formatDateShort(grade.fork_created_at)}</>
-                            ) : (
+                            {!hasProgress ? (
+                              // Sin progreso: solo mostrar fecha de inicio
+                              <>{formatDateShort(grade.fork_created_at)}</>
+                            ) : isSameDay || !updatedDate ? (
+                              // Mismo día con progreso
                               <>
-                                {grade.fork_created_at && formatDateShort(grade.fork_created_at)}
-                                {grade.fork_created_at && grade.fork_updated_at && ' – '}
-                                {grade.fork_updated_at && formatDateShort(grade.fork_updated_at)}
+                                {formatDateShort(grade.fork_created_at)}
+                                <span className="text-gray-400"> · {duration} {duration > 1 ? t('grades_breakdown.duration.days') : t('grades_breakdown.duration.day')}</span>
+                              </>
+                            ) : (
+                              // Días diferentes con progreso
+                              <>
+                                {formatDateShort(grade.fork_created_at)}
+                                <span className="text-gray-400"> → </span>
+                                {formatDateShort(grade.fork_updated_at)}
+                                <span className="text-gray-400"> · {duration}{t('grades_breakdown.duration.day_short')}</span>
                               </>
                             )}
                           </span>
