@@ -529,7 +529,8 @@ class ClassroomSupabaseSync:
                     resolution_time_hours = None
                     logger.info(f"Student {github_username} has no fork - skipping Time Spent calculation")
                 
-                leaderboard_data.append({
+                # Store progress separately for sorting (not in DB - frontend calculates it)
+                leaderboard_entry = {
                     'github_username': github_username,
                     'fork_created_at': student['fork_created_at'],
                     'last_updated_at': student['last_updated_at'],
@@ -537,17 +538,18 @@ class ClassroomSupabaseSync:
                     'has_fork': has_fork,
                     'total_score': total_score,
                     'total_possible': total_possible,
-                    'progress': progress,
                     'assignments_completed': assignments_completed
-                })
+                }
+                leaderboard_entry['_progress'] = progress  # Temp field for sorting
+                leaderboard_data.append(leaderboard_entry)
             
-            # Sort by ranking criteria: 
+            # Sort by ranking criteria:
             # 1. Time Spent ASC (who solved fastest)
             # 2. progress DESC (higher score as tiebreaker)
             # 3. Username ASC (alphabetical as final tiebreaker)
             leaderboard_data.sort(key=lambda x: (
                 x['resolution_time_hours'] if x['resolution_time_hours'] is not None else 999999,
-                -x['progress'],  # Negative for descending order
+                -x['_progress'],  # Negative for descending order
                 x['github_username']
             ))
             
@@ -561,11 +563,12 @@ class ClassroomSupabaseSync:
                     time_str = f"{hours}d {minutes}h" if hours > 0 else f"{minutes}h"
                 else:
                     time_str = "N/A"
-                logger.info(f"  {i}. {student['github_username']}: {time_str} ({student['progress']}%)")
+                logger.info(f"  {i}. {student['github_username']}: {time_str} ({student['_progress']}%)")
             
-            # Add ranking positions
+            # Add ranking positions and remove temp sorting field
             for i, student in enumerate(leaderboard_data, 1):
                 student['ranking_position'] = i
+                del student['_progress']  # Remove temp field before DB insert
             
             # Clear existing data and insert new data
             # Use a different approach to clear data that works with RLS
