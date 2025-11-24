@@ -55,11 +55,7 @@ jobs:
         cd b4os-backend
         # Create logs directory
         mkdir -p ../logs
-        # Copy environment template if .env.local doesn't exist
-        if [ ! -f .env.local ]; then
-          cp env.example .env.local
-          echo "Created .env.local from template"
-        fi
+        # Don't create .env.local - use env vars from workflow instead
     
     - name: Install Python dependencies
       run: |
