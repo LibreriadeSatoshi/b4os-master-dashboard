@@ -527,7 +527,7 @@ class ClassroomSupabaseSync:
                     )
                 else:
                     resolution_time_hours = None
-                    logger.info(f"Student {github_username} has no fork - skipping Time Spent calculation")
+                    logger.debug(f"Student has no fork - skipping Time Spent calculation")
                 
                 # Store progress separately for sorting (not in DB - frontend calculates it)
                 leaderboard_entry = {
@@ -553,17 +553,8 @@ class ClassroomSupabaseSync:
                 x['github_username']
             ))
             
-            # Log ranking for verification
-            logger.info("Ranking by Time Spent (fastest to slowest):")
-            for i, student in enumerate(leaderboard_data[:5], 1):  # Log top 5
-                resolution_time = student['resolution_time_hours']
-                if resolution_time is not None:
-                    hours = resolution_time // 24
-                    minutes = (resolution_time % 24) // 60
-                    time_str = f"{hours}d {minutes}h" if hours > 0 else f"{minutes}h"
-                else:
-                    time_str = "N/A"
-                logger.info(f"  {i}. {student['github_username']}: {time_str} ({student['_progress']}%)")
+            # Log ranking summary (without exposing usernames)
+            logger.info(f"Leaderboard calculated for {len(leaderboard_data)} students")
             
             # Add ranking positions and remove temp sorting field
             for i, student in enumerate(leaderboard_data, 1):
@@ -593,7 +584,7 @@ class ClassroomSupabaseSync:
                         try:
                             self.supabase.table('admin_leaderboard').upsert(student, on_conflict='github_username').execute()
                         except Exception as individual_error:
-                            logger.error(f"Failed to insert individual student {student['github_username']}: {individual_error}")
+                            logger.error(f"Failed to insert individual student: {individual_error}")
             
             logger.info(f"Admin leaderboard refreshed successfully with {len(leaderboard_data)} students")
             
@@ -874,7 +865,7 @@ class ClassroomSupabaseSync:
                         student_repo_url = row.get('student_repository_url', '')
 
                         if student_repo_url:
-                            logger.info(f"Getting repo info for {github_username} ({formatted_name}): {student_repo_url}")
+                            logger.debug(f"Getting repo info for assignment: {formatted_name}")
 
                             # Get repository information
                             repo_info = self.get_repository_info(student_repo_url)
@@ -886,8 +877,7 @@ class ClassroomSupabaseSync:
                                     assignment_fork_dates[(github_username, formatted_name)] = repo_info['created_at']
                                     assignment_fork_updated[(github_username, formatted_name)] = repo_info['updated_at']
 
-                                    logger.info(f"FORK FOUND for {github_username} ({formatted_name}): "
-                                              f"created={repo_info['created_at']}, updated={repo_info['updated_at']}")
+                                    logger.debug(f"Fork found for assignment: {formatted_name}")
 
                                     # Also update students_with_repo_info if not already set (for students table)
                                     if github_username not in students_with_repo_info:
@@ -905,7 +895,7 @@ class ClassroomSupabaseSync:
                                         }
                                 else:
                                     # Repository exists but is not a fork
-                                    logger.warning(f"Repository exists for {github_username} but is NOT a fork")
+                                    logger.debug(f"Repository exists but is NOT a fork")
                                     if github_username not in students_with_repo_info:
                                         students_with_repo_info[github_username] = {
                                             'github_username': github_username,
@@ -915,7 +905,7 @@ class ClassroomSupabaseSync:
                                             'has_fork': False
                                         }
                             else:
-                                logger.warning(f"Could not get repository info for {github_username} - no fork exists")
+                                logger.debug(f"No fork exists for this student")
                                 # Add student without repo info
                                 if github_username not in students_with_repo_info:
                                     students_with_repo_info[github_username] = {
