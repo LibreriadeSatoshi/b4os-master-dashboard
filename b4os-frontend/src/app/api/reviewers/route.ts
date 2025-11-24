@@ -13,6 +13,7 @@ interface ReviewerUpdateData {
   status?: string
   completed_at?: string
   code_quality_score?: number
+  feedback_for_student?: string
   updated_at: string
 }
 
@@ -144,7 +145,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { id, status, code_quality_score } = body
+    const { id, status, code_quality_score, feedback_for_student } = body
 
     if (!id) {
       return NextResponse.json(
@@ -170,6 +171,9 @@ export async function PATCH(request: NextRequest) {
         )
       }
       updateData.code_quality_score = code_quality_score
+    }
+    if (feedback_for_student !== undefined) {
+      updateData.feedback_for_student = feedback_for_student
     }
 
     const { error } = await supabase
