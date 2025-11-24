@@ -312,6 +312,16 @@
     "no_comments": "No comments",
     "confirm_remove": "Are you sure you want to remove this reviewer?",
     "options_menu": "Reviewer options",
+    "student_feedback": {
+      "title": "Feedback for Student",
+      "placeholder": "Write the feedback that the student will see from their app...",
+      "add": "Add Feedback",
+      "save": "Save Feedback",
+      "saving": "Saving...",
+      "saved": "Feedback saved",
+      "empty": "No feedback yet",
+      "hint": "This feedback will be visible to the student from their dashboard"
+    },
     "checklist": {
       "title": "Evaluation Checklist",
       "progress": "Evaluation progress",

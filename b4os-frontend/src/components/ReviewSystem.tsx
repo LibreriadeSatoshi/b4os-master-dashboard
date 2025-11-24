@@ -57,6 +57,10 @@ export default function ReviewSystem({
   // Evaluaciones de criterios por revisor (reviewerId -> evaluations)
   const [criteriaEvaluations, setCriteriaEvaluations] = useState<Map<number, CriterionEvaluation[]>>(new Map());
   const [activeReviewerId, setActiveReviewerId] = useState<number | null>(null);
+  // Student feedback
+  const [feedbackByReviewer, setFeedbackByReviewer] = useState<Map<number, string>>(new Map());
+  const [originalFeedback, setOriginalFeedback] = useState<Map<number, string>>(new Map());
+  const [savingFeedback, setSavingFeedback] = useState<number | null>(null);
   // Challenge dates
   const [challengeDates, setChallengeDates] = useState<{
     startDate: string | null;
@@ -92,9 +96,20 @@ export default function ReviewSystem({
         SupabaseService.getStudentGradesBreakdown(studentUsername)
       ]);
 
-      setReviewers(reviewersData.filter(r => r.assignment_name === assignmentName));
+      const filteredReviewers = reviewersData.filter(r => r.assignment_name === assignmentName);
+      setReviewers(filteredReviewers);
       setComments(commentsData);
       setAvailableReviewers(availableReviewersData);
+
+      // Initialize feedback map from loaded reviewers
+      const feedbackMap = new Map<number, string>();
+      filteredReviewers.forEach(r => {
+        if (r.feedback_for_student) {
+          feedbackMap.set(r.id, r.feedback_for_student);
+        }
+      });
+      setFeedbackByReviewer(feedbackMap);
+      setOriginalFeedback(new Map(feedbackMap));
 
       // Get dates for this specific assignment
       const assignmentGrade = gradesData.find(g => g.assignment_name === assignmentName);
@@ -270,6 +285,38 @@ export default function ReviewSystem({
         alert(`Error: ${error}`);
       }
     }
+  };
+
+  const handleSaveFeedback = async (reviewerId: number) => {
+    const feedback = feedbackByReviewer.get(reviewerId) || '';
+    setSavingFeedback(reviewerId);
+
+    try {
+      const result = await SupabaseService.updateStudentFeedback(reviewerId, feedback);
+      if (!result.success) {
+        alert(`Error: ${result.error}`);
+      } else {
+        // Update original feedback to mark as saved
+        setOriginalFeedback(prev => {
+          const newMap = new Map(prev);
+          newMap.set(reviewerId, feedback);
+          return newMap;
+        });
+      }
+    } catch (error) {
+      console.error("Error saving feedback:", error);
+      alert(`Error: ${error}`);
+    } finally {
+      setSavingFeedback(null);
+    }
+  };
+
+  const handleFeedbackChange = (reviewerId: number, value: string) => {
+    setFeedbackByReviewer(prev => {
+      const newMap = new Map(prev);
+      newMap.set(reviewerId, value);
+      return newMap;
+    });
   };
 
   // const getStatusIcon = (status: string) => {
@@ -626,6 +673,7 @@ export default function ReviewSystem({
                       </p>
                     </div>
                   )}
+
                 </div>
               );
             })
@@ -762,6 +810,69 @@ export default function ReviewSystem({
           )}
         </div>
       </div>
+
+      {/* Student Feedback Section - shows when at least one review is completed */}
+      {reviewers.some(r => r.status === "completed") && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 pl-1">
+            <MessageSquare className="w-4 h-4 text-amber-600" />
+            <h4 className="text-md font-medium text-gray-900">
+              {t('review_system.student_feedback.title')}
+            </h4>
+          </div>
+          <p className="text-xs text-amber-600 pl-1">
+            {t('review_system.student_feedback.hint')}
+          </p>
+
+          <div className="space-y-3">
+            {reviewers.filter(r => r.status === "completed").map((reviewer) => {
+              const savedFeedback = originalFeedback.get(reviewer.id);
+              const hasSavedFeedback = savedFeedback && savedFeedback.trim().length > 0;
+
+              return (
+                <div key={reviewer.id} className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-6 h-6 bg-amber-100 rounded-full flex items-center justify-center">
+                      <User className="w-3.5 h-3.5 text-amber-700" />
+                    </div>
+                    <span className="text-sm font-medium text-amber-800">{reviewer.reviewer_username}</span>
+                  </div>
+
+                  {hasSavedFeedback ? (
+                    // Read-only view - feedback already saved
+                    <div className="bg-white border border-amber-200 rounded-lg p-3 ml-8">
+                      <p className="text-sm text-gray-700 whitespace-pre-wrap">{savedFeedback}</p>
+                    </div>
+                  ) : (
+                    // Editable view - no feedback yet
+                    <div className="ml-8">
+                      <textarea
+                        value={feedbackByReviewer.get(reviewer.id) || ''}
+                        onChange={(e) => handleFeedbackChange(reviewer.id, e.target.value)}
+                        placeholder={t('review_system.student_feedback.placeholder')}
+                        className="w-full px-3 py-2 border border-amber-200 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 focus:border-transparent resize-none bg-white"
+                        rows={3}
+                      />
+                      <div className="flex justify-end mt-2">
+                        <button
+                          onClick={() => handleSaveFeedback(reviewer.id)}
+                          disabled={savingFeedback === reviewer.id || !(feedbackByReviewer.get(reviewer.id) || '').trim()}
+                          className="px-3 py-1.5 text-sm font-medium text-white bg-amber-600 hover:bg-amber-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {savingFeedback === reviewer.id
+                            ? t('review_system.student_feedback.saving')
+                            : t('review_system.student_feedback.add')
+                          }
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
       )}
     </>

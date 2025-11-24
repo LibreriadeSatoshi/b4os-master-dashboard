@@ -312,6 +312,16 @@
     "no_comments": "No hay comentarios",
     "confirm_remove": "¿Estás seguro de que quieres remover este revisor?",
     "options_menu": "Opciones del revisor",
+    "student_feedback": {
+      "title": "Feedback para el Alumno",
+      "placeholder": "Escribe el feedback que el alumno verá desde su aplicación...",
+      "add": "Añadir Feedback",
+      "save": "Guardar Feedback",
+      "saving": "Guardando...",
+      "saved": "Feedback guardado",
+      "empty": "Sin feedback aún",
+      "hint": "Este feedback será visible para el alumno desde su dashboard"
+    },
     "checklist": {
       "title": "Checklist de Evaluación",
       "progress": "Progreso de Evaluación",
