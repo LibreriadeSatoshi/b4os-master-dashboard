@@ -37,16 +37,15 @@ jobs:
     
     - name: Authenticate GitHub CLI
       run: |
-        echo "${{ secrets.GITHUB_TOKEN }}" | gh auth login --with-token
+        echo "${{ secrets.GH_CLASSROOM_TOKEN }}" | gh auth login --with-token
     
     - name: Verify GitHub CLI authentication
       run: |
         gh auth status
-        gh api user
     
     - name: Install GitHub CLI Classroom Extension
       env:
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GH_TOKEN: ${{ secrets.GH_CLASSROOM_TOKEN }}
       run: |
         gh extension install github/gh-classroom
         gh extension list
@@ -56,11 +55,7 @@ jobs:
         cd b4os-backend
         # Create logs directory
         mkdir -p ../logs
-        # Copy environment template if .env.local doesn't exist
-        if [ ! -f .env.local ]; then
-          cp env.example .env.local
-          echo "Created .env.local from template"
-        fi
+        # Don't create .env.local - use env vars from workflow instead
     
     - name: Install Python dependencies
       run: |
@@ -108,7 +103,7 @@ jobs:
       env:
         SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
         SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ secrets.GH_CLASSROOM_TOKEN }}
         CLASSROOM_NAME: ${{ inputs.classroom_name || 'B4OS-Dev-2025' }}
         ASSIGNMENT_ID: ${{ inputs.assignment_id || '' }}
         LOG_LEVEL: DEBUG
