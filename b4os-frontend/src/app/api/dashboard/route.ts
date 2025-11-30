@@ -198,7 +198,7 @@ async function getLeaderboard() {
       }
     })
 
-    // Get total number of assignments in the system
+    // Get total number of assignments in the system (for fair comparison between students)
     const { data: allAssignments } = await supabase
       .from('assignments')
       .select('name')
@@ -230,17 +230,24 @@ async function getLeaderboard() {
       student.sum_of_progresss += individualprogress
     })
 
-    const leaderboard = Array.from(studentMap.values()).map(student => ({
-      github_username: student.github_username,
-      total_score: student.total_score,
-      total_possible: student.total_possible,
-      // Calculate: sum of individual progresss / total assignments in system
-      progress: Math.round(student.sum_of_progresss / totalSystemAssignments),
+    const leaderboard = Array.from(studentMap.values()).map(student => {
       // Count unique assignments where student has a grade
-      assignments_completed: new Set(student.grades.map((g: { assignment_name: string }) => g.assignment_name)).size,
-      resolution_time_hours: undefined,
-      has_fork: false
-    }))
+      const uniqueAssignments = new Set(student.grades.map((g: { assignment_name: string }) => g.assignment_name))
+      
+      return {
+        github_username: student.github_username,
+        total_score: student.total_score,
+        total_possible: student.total_possible,
+        // Calculate: sum of individual progresss / total assignments in system
+        // This ensures fair comparison: student with 6 assignments at 100% = 100%
+        // vs student with 1 assignment at 100% = 16.67% (if total is 6)
+        progress: Math.round(student.sum_of_progresss / totalSystemAssignments),
+        // Count unique assignments where student has a grade
+        assignments_completed: uniqueAssignments.size,
+        resolution_time_hours: undefined,
+        has_fork: false
+      }
+    })
 
     if (allStudents) {
       const existingUsernames = new Set(leaderboard.map(s => s.github_username))

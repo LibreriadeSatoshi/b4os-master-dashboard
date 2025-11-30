@@ -508,16 +508,19 @@ class ClassroomSupabaseSync:
                 total_score = sum(grade['points_awarded'] for grade in student_grades if grade['points_awarded'])
                 total_possible = sum(assignment_points.get(grade['assignment_name'], 0) for grade in student_grades)
 
+                # Count unique assignments where student has a grade
+                unique_assignments = set(g['assignment_name'] for g in student_grades)
+                assignments_completed = len(unique_assignments)
+                
                 # Calculate progress as: sum of individual progresss / total assignments in system
+                # This ensures fair comparison: student with 6 assignments at 100% = 100%
+                # vs student with 1 assignment at 100% = 16.67% (if total is 6)
                 sum_of_progresss = sum(
                     (grade['points_awarded'] / assignment_points.get(grade['assignment_name'], 1)) * 100
                     for grade in student_grades
                     if grade['points_awarded'] and assignment_points.get(grade['assignment_name'], 0) > 0
                 )
                 progress = round(sum_of_progresss / total_system_assignments)
-
-                # Count unique assignments where student has a grade
-                assignments_completed = len(set(g['assignment_name'] for g in student_grades))
                 
                 # Calculate Time Spent only if student has a fork
                 if has_fork:
@@ -529,7 +532,7 @@ class ClassroomSupabaseSync:
                     resolution_time_hours = None
                     logger.debug(f"Student has no fork - skipping Time Spent calculation")
                 
-                # Store progress separately for sorting (not in DB - frontend calculates it)
+                # Store progress for both sorting and DB
                 leaderboard_entry = {
                     'github_username': github_username,
                     'fork_created_at': student['fork_created_at'],
@@ -538,6 +541,7 @@ class ClassroomSupabaseSync:
                     'has_fork': has_fork,
                     'total_score': total_score,
                     'total_possible': total_possible,
+                    'percentage': progress,  # Save to DB
                     'assignments_completed': assignments_completed
                 }
                 leaderboard_entry['_progress'] = progress  # Temp field for sorting
