@@ -144,6 +144,12 @@ async function getLeaderboard() {
       }
     })
 
+    // Get total number of assignments in the system (for fair comparison between students)
+    const { data: allAssignments } = await supabase
+      .from('assignments')
+      .select('name')
+    const totalSystemAssignments = allAssignments?.length || 1
+
     const studentMap = new Map()
     gradesData.forEach(grade => {
       const username = grade.github_username
@@ -153,6 +159,7 @@ async function getLeaderboard() {
           total_score: 0,
           total_possible: 0,
           assignments_completed: 0,
+          sum_of_progresss: 0,
           grades: []
         })
       }
@@ -161,19 +168,32 @@ async function getLeaderboard() {
       student.total_score += grade.points_awarded || 0
       student.total_possible += grade.points_available || 0
       student.grades.push(grade)
+
+      // Add individual progress for this assignment
+      const individualprogress = grade.points_available > 0
+        ? (grade.points_awarded || 0) / grade.points_available * 100
+        : 0
+      student.sum_of_progresss += individualprogress
     })
 
-    const leaderboard = Array.from(studentMap.values()).map(student => ({
-      github_username: student.github_username,
-      total_score: student.total_score,
-      total_possible: student.total_possible,
-      progress: student.total_possible > 0
-        ? Math.round((student.total_score / student.total_possible) * 100)
-        : 0,
-      assignments_completed: acceptedAssignments.get(student.github_username)?.size || 0,
-      resolution_time_hours: undefined,
-      has_fork: false
-    }))
+    const leaderboard = Array.from(studentMap.values()).map(student => {
+      // Count unique assignments where student has a grade
+      const uniqueAssignments = new Set(student.grades.map((g: { assignment_name: string }) => g.assignment_name))
+      
+      return {
+        github_username: student.github_username,
+        total_score: student.total_score,
+        total_possible: student.total_possible,
+        // Calculate: sum of individual progresss / total assignments in system
+        // This ensures fair comparison: student with 6 assignments at 100% = 100%
+        // vs student with 1 assignment at 100% = 16.67% (if total is 6)
+        progress: Math.round(student.sum_of_progresss / totalSystemAssignments),
+        // Count unique assignments where student has a grade
+        assignments_completed: uniqueAssignments.size,
+        resolution_time_hours: undefined,
+        has_fork: false
+      }
+    })
 
     if (allStudents) {
       const existingUsernames = new Set(leaderboard.map(s => s.github_username))
