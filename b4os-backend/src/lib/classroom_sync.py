@@ -38,11 +38,11 @@ load_dotenv()
 def setup_logging(log_level: str = "INFO") -> logging.Logger:
     """Setup structured logging configuration."""
     log_level = getattr(logging, log_level.upper(), logging.INFO)
-    
+
     # Create logs directory if it doesn't exist (relative to project root)
     log_dir = Path("../logs")
     log_dir.mkdir(exist_ok=True)
-    
+
     # Configure logging
     logging.basicConfig(
         level=log_level,
@@ -52,7 +52,11 @@ def setup_logging(log_level: str = "INFO") -> logging.Logger:
             logging.StreamHandler(sys.stdout)
         ]
     )
-    
+
+    # Silence noisy third-party loggers
+    logging.getLogger('httpx').setLevel(logging.WARNING)
+    logging.getLogger('httpcore').setLevel(logging.WARNING)
+
     return logging.getLogger(__name__)
 
 logger = setup_logging(os.getenv('LOG_LEVEL', 'INFO'))
@@ -67,6 +71,7 @@ class SyncConfig:
     log_level: str = "INFO"
     max_retries: int = 3
     timeout_seconds: int = 30
+    search_username: Optional[str] = None  # Optional username to track in logs
 
 class GitHubCLIError(Exception):
     """Custom exception for GitHub CLI errors."""
@@ -133,7 +138,7 @@ class ClassroomSupabaseSync:
             
             # Test connection with a simple query that doesn't require RLS
             try:
-                result = client.table('students').select('github_username').limit(1).execute()
+                result = client.table('zzz_students').select('github_username').limit(1).execute()
                 logger.info("Supabase connection verified")
                 return client
             except Exception as query_error:
@@ -149,23 +154,31 @@ class ClassroomSupabaseSync:
     def _execute_gh_command(self, command: str) -> str:
         """
         Execute GitHub CLI command with proper error handling.
-        
+
         Args:
             command: GitHub CLI command to execute
-            
+
         Returns:
             Command output as string
-            
+
         Raises:
             GitHubCLIError: If command execution fails
         """
         try:
+            # GitHub CLI should use its own authentication for classroom commands
+            # Remove GITHUB_TOKEN from environment to avoid permission issues
+            env = os.environ.copy()
+            if 'GITHUB_TOKEN' in env:
+                logger.debug("Temporarily removing GITHUB_TOKEN for gh classroom command")
+                del env['GITHUB_TOKEN']
+
             result = subprocess.run(
                 command.split(),
                 capture_output=True,
                 text=True,
                 timeout=self.config.timeout_seconds,
-                check=True
+                check=True,
+                env=env
             )
             return result.stdout
         except subprocess.TimeoutExpired:
@@ -261,24 +274,32 @@ class ClassroomSupabaseSync:
     def _parse_assignments_list(self, output: str) -> List[Tuple[str, str, str]]:
         """
         Parse assignments list output from GitHub CLI.
-        
+
         Args:
             output: Raw output from 'gh classroom assignments'
-            
+
         Returns:
             List of (assignment_id, assignment_name, assignment_repo) tuples
         """
         lines = output.strip().split('\n')
+
+        # Debug logging
+        logger.debug(f"Parsing assignments list - Total lines: {len(lines)}")
+        for i, line in enumerate(lines[:5]):  # Log first 5 lines
+            logger.debug(f"Line {i}: {repr(line)}")
+
         if len(lines) < 4:
+            logger.error(f"Invalid assignments list format - only {len(lines)} lines (expected >= 4)")
+            logger.error(f"Output was: {repr(output[:500])}")
             raise DataValidationError("Invalid assignments list format")
-        
+
         assignments = []
         for line in lines[3:]:  # Skip header lines
             if line.strip():
                 parts = line.split('\t')
                 if len(parts) >= 7:
                     assignments.append((parts[0], parts[1], parts[6]))
-        
+
         return assignments
     
     def download_grades_to_dataframe(self, assignment_id: str) -> Optional[pd.DataFrame]:
@@ -361,17 +382,18 @@ class ClassroomSupabaseSync:
     def get_repository_info(self, repo_url: str) -> Optional[Dict[str, Any]]:
         """
         Get repository information from GitHub API including creation and update dates.
-        
+        Uses gh CLI for authentication to avoid token permission issues.
+
         Args:
             repo_url: GitHub repository URL
-            
+
         Returns:
             Dictionary with repository info or None if failed
         """
         if not repo_url or not isinstance(repo_url, str):
             logger.warning(f"Invalid repository URL: {repo_url}")
             return None
-        
+
         try:
             # Extract owner/repo from URL
             # URL format: https://github.com/B4OS-Dev/the-moria-mining-codex-part-1-kleysc
@@ -379,21 +401,32 @@ class ClassroomSupabaseSync:
             if len(url_parts) != 2:
                 logger.warning(f"Invalid GitHub URL format: {repo_url}")
                 return None
-            
+
             owner, repo = url_parts
-            
-            # Get GitHub token from environment
-            github_token = os.getenv('GITHUB_TOKEN')
-            headers = {}
-            if github_token:
-                headers['Authorization'] = f'token {github_token}'
-            
-            # Make API request
-            api_url = f'https://api.github.com/repos/{owner}/{repo}'
-            response = requests.get(api_url, headers=headers, timeout=10)
-            
-            if response.status_code == 200:
-                repo_data = response.json()
+
+            # Use gh api command instead of direct HTTP requests
+            # This uses the same authentication as gh classroom commands
+            api_endpoint = f'repos/{owner}/{repo}'
+
+            logger.debug(f"Fetching repo info: {api_endpoint}")
+
+            # Remove GITHUB_TOKEN from environment to use gh CLI auth
+            env = os.environ.copy()
+            if 'GITHUB_TOKEN' in env:
+                del env['GITHUB_TOKEN']
+
+            result = subprocess.run(
+                ['gh', 'api', api_endpoint],
+                capture_output=True,
+                text=True,
+                timeout=10,
+                env=env
+            )
+
+            if result.returncode == 0:
+                import json
+                repo_data = json.loads(result.stdout)
+                logger.debug(f"Successfully fetched repo info for {repo}")
                 return {
                     'created_at': repo_data.get('created_at'),
                     'updated_at': repo_data.get('updated_at'),
@@ -403,18 +436,19 @@ class ClassroomSupabaseSync:
                     'is_fork': repo_data.get('fork', False),
                     'parent': repo_data.get('parent')
                 }
-            elif response.status_code == 404:
-                logger.warning(f"Repository not found: {repo_url}")
-                return None
-            elif response.status_code == 403:
-                logger.warning(f"Rate limit exceeded for repository: {repo_url}")
-                return None
             else:
-                logger.warning(f"GitHub API error {response.status_code} for repository: {repo_url}")
+                error_msg = result.stderr.strip()
+                logger.debug(f"gh api failed - returncode: {result.returncode}, stderr: {error_msg[:200]}")
+                if 'Not Found' in error_msg or '404' in error_msg:
+                    logger.warning(f"Repository not found: {repo_url}")
+                elif 'rate limit' in error_msg.lower():
+                    logger.warning(f"Rate limit exceeded for repository: {repo_url}")
+                else:
+                    logger.warning(f"GitHub API error for repository {repo_url}: {error_msg}")
                 return None
-                
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Request error getting repository info for {repo_url}: {e}")
+
+        except subprocess.TimeoutExpired:
+            logger.error(f"GitHub API request timed out for {repo_url}")
             return None
         except Exception as e:
             logger.error(f"Unexpected error getting repository info for {repo_url}: {e}")
@@ -424,30 +458,112 @@ class ClassroomSupabaseSync:
         """
         Calculate Time Spent in hours between repository creation and last update.
         This represents the time from fork creation to reaching maximum score.
-        
+
         Args:
             created_at: Repository creation timestamp (fork date)
             updated_at: Repository last update timestamp (when max score was reached)
-            
+
         Returns:
             Time Spent in hours or None if calculation fails
         """
         try:
             if not created_at or not updated_at:
                 return None
-            
+
             # Parse timestamps
             created = datetime.datetime.fromisoformat(created_at.replace('Z', '+00:00'))
             updated = datetime.datetime.fromisoformat(updated_at.replace('Z', '+00:00'))
-            
+
             # Calculate difference in hours
             time_diff = updated - created
             resolution_hours = int(time_diff.total_seconds() / 3600)
-            
+
             return resolution_hours
-            
+
         except Exception as e:
             logger.error(f"Error calculating Time Spent: {e}")
+            return None
+
+    def get_workflow_runs(self, repo_url: str) -> Optional[Dict[str, Any]]:
+        """
+        Get workflow runs from GitHub Actions for a repository.
+        This represents the number of attempts a student made.
+
+        Args:
+            repo_url: GitHub repository URL
+
+        Returns:
+            Dictionary with workflow run statistics or None if failed
+        """
+        if not repo_url or not isinstance(repo_url, str):
+            logger.warning(f"Invalid repository URL: {repo_url}")
+            return None
+
+        try:
+            # Extract owner/repo from URL
+            url_parts = repo_url.replace('https://github.com/', '').split('/')
+            if len(url_parts) != 2:
+                logger.warning(f"Invalid GitHub URL format: {repo_url}")
+                return None
+
+            owner, repo = url_parts
+
+            # Get workflow runs using gh CLI (limit to 100 most recent)
+            api_endpoint = f'repos/{owner}/{repo}/actions/runs?per_page=100'
+
+            logger.debug(f"Fetching workflow runs: {api_endpoint}")
+
+            # Remove GITHUB_TOKEN from environment to use gh CLI auth
+            env = os.environ.copy()
+            if 'GITHUB_TOKEN' in env:
+                del env['GITHUB_TOKEN']
+
+            result = subprocess.run(
+                ['gh', 'api', api_endpoint],
+                capture_output=True,
+                text=True,
+                timeout=10,
+                env=env
+            )
+
+            if result.returncode == 0:
+                import json
+                runs_data = json.loads(result.stdout)
+
+                total_runs = runs_data.get('total_count', 0)
+                workflow_runs = runs_data.get('workflow_runs', [])
+
+                # Count by conclusion status
+                successful_runs = len([r for r in workflow_runs if r.get('conclusion') == 'success'])
+                failed_runs = len([r for r in workflow_runs if r.get('conclusion') == 'failure'])
+
+                # Get first and last run dates (runs are ordered by created_at desc)
+                first_run = workflow_runs[-1] if workflow_runs else None
+                last_run = workflow_runs[0] if workflow_runs else None
+
+                logger.debug(f"Found {total_runs} workflow runs for {repo} ({successful_runs} successful, {failed_runs} failed)")
+
+                return {
+                    'total_attempts': total_runs,
+                    'successful_attempts': successful_runs,
+                    'failed_attempts': failed_runs,
+                    'first_attempt_at': first_run.get('created_at') if first_run else None,
+                    'last_attempt_at': last_run.get('created_at') if last_run else None
+                }
+            else:
+                error_msg = result.stderr.strip()
+                # Don't log as error if repo just has no workflows
+                if 'not found' in error_msg.lower() or '404' in error_msg:
+                    logger.debug(f"No workflow runs found for {repo_url}")
+                else:
+                    logger.debug(f"gh api failed for workflow runs - {error_msg[:200]}")
+                return None
+
+        except subprocess.TimeoutExpired:
+            logger.error(f"GitHub API request timed out for workflow runs: {repo_url}")
+            return None
+        except Exception as e:
+            logger.error(f"Unexpected error getting workflow runs for {repo_url}: {e}")
             return None
     
     def refresh_admin_leaderboard(self) -> None:
@@ -462,17 +578,17 @@ class ClassroomSupabaseSync:
         
         try:
             # Get all students with their data
-            students_result = self.supabase.table('students').select('github_username, fork_created_at, last_updated_at, has_fork').execute()
-            
+            students_result = self.supabase.table('zzz_students').select('github_username, fork_created_at, last_updated_at, has_fork').execute()
+
             if not students_result.data:
                 logger.warning("No students found for leaderboard")
                 return
-            
+
             # Get all grades (including fork_created_at to count accepted assignments)
-            grades_result = self.supabase.table('grades').select('github_username, assignment_name, points_awarded, fork_created_at').execute()
-            
+            grades_result = self.supabase.table('zzz_grades').select('github_username, assignment_name, points_awarded, fork_created_at').execute()
+
             # Get all assignments
-            assignments_result = self.supabase.table('assignments').select('name, points_available').execute()
+            assignments_result = self.supabase.table('zzz_assignments').select('name, points_available').execute()
             
             # Create lookup dictionaries
             assignment_points = {a['name']: a['points_available'] for a in assignments_result.data if a['points_available']}
@@ -483,7 +599,7 @@ class ClassroomSupabaseSync:
                 if assignment_name not in assignment_points or assignment_points[assignment_name] == 0:
                     # Find the maximum points awarded for this assignment
                     max_points = max(
-                        (g['points_awarded'] for g in grades_result.data
+                        (int(g['points_awarded']) if g['points_awarded'] else 0 for g in grades_result.data
                          if g['assignment_name'] == assignment_name and g['points_awarded']),
                         default=0
                     )
@@ -504,19 +620,19 @@ class ClassroomSupabaseSync:
                 # Get grades for this student
                 student_grades = [g for g in grades_result.data if g['github_username'] == github_username]
 
-                # Calculate totals
-                total_score = sum(grade['points_awarded'] for grade in student_grades if grade['points_awarded'])
+                # Calculate totals (convert points_awarded to int)
+                total_score = sum(int(grade['points_awarded']) for grade in student_grades if grade['points_awarded'])
                 total_possible = sum(assignment_points.get(grade['assignment_name'], 0) for grade in student_grades)
 
                 # Count unique assignments where student has a grade
                 unique_assignments = set(g['assignment_name'] for g in student_grades)
                 assignments_completed = len(unique_assignments)
-                
+
                 # Calculate progress as: sum of individual progresss / total assignments in system
                 # This ensures fair comparison: student with 6 assignments at 100% = 100%
                 # vs student with 1 assignment at 100% = 16.67% (if total is 6)
                 sum_of_progresss = sum(
-                    (grade['points_awarded'] / assignment_points.get(grade['assignment_name'], 1)) * 100
+                    (int(grade['points_awarded']) / assignment_points.get(grade['assignment_name'], 1)) * 100
                     for grade in student_grades
                     if grade['points_awarded'] and assignment_points.get(grade['assignment_name'], 0) > 0
                 )
@@ -569,28 +685,31 @@ class ClassroomSupabaseSync:
             # Use a different approach to clear data that works with RLS
             try:
                 # Try to clear existing data
-                self.supabase.table('admin_leaderboard').delete().neq('id', '00000000-0000-0000-0000-000000000000').execute()
+                self.supabase.table('zzz_admin_leaderboard').delete().neq('id', '00000000-0000-0000-0000-000000000000').execute()
             except Exception as e:
                 logger.warning(f"Could not clear existing data: {e}")
                 # Continue anyway, the insert will handle conflicts
             
             # Insert new data in batches to avoid RLS issues
             batch_size = 10
+            inserted_count = 0
+            upserted_count = 0
+
             for i in range(0, len(leaderboard_data), batch_size):
                 batch = leaderboard_data[i:i + batch_size]
                 try:
-                    result = self.supabase.table('admin_leaderboard').insert(batch).execute()
-                    logger.info(f"Inserted batch {i//batch_size + 1} with {len(batch)} students")
-                except Exception as e:
-                    logger.error(f"Failed to insert batch {i//batch_size + 1}: {e}")
-                    # Try individual inserts
+                    self.supabase.table('zzz_admin_leaderboard').insert(batch).execute()
+                    inserted_count += len(batch)
+                except Exception:
+                    # Batch insert failed, try individual upserts (handles both insert and update)
                     for student in batch:
                         try:
-                            self.supabase.table('admin_leaderboard').upsert(student, on_conflict='github_username').execute()
+                            self.supabase.table('zzz_admin_leaderboard').upsert(student, on_conflict='github_username').execute()
+                            upserted_count += 1
                         except Exception as individual_error:
-                            logger.error(f"Failed to insert individual student: {individual_error}")
-            
-            logger.info(f"Admin leaderboard refreshed successfully with {len(leaderboard_data)} students")
+                            logger.error(f"Failed to upsert student: {individual_error}")
+
+            logger.info(f"✓ Refreshed leaderboard: {len(leaderboard_data)} students (Inserted: {inserted_count}, Updated: {upserted_count})")
             
         except Exception as e:
             logger.error(f"Failed to refresh admin leaderboard: {e}")
@@ -625,58 +744,60 @@ class ClassroomSupabaseSync:
     def sync_students_to_supabase(self, students_data: List[Dict[str, Any]]) -> None:
         """
         Sync students to Supabase with retry mechanism.
-        
+
         Args:
             students_data: List of student data dictionaries with repository info
-            
+
         Raises:
             SupabaseSyncError: If sync fails after retries
         """
         if not students_data:
             logger.warning("No students to sync")
             return
-        
+
         logger.info(f"Syncing {len(students_data)} students to Supabase")
-        
+
         # Prepare data for Supabase
         supabase_data = []
+        students_with_forks = 0
         for student in students_data:
             try:
                 student_record = {
                     "github_username": str(student['github_username']).strip(),
                     "updated_at": datetime.datetime.now().isoformat()
                 }
-                
+
                 # Add repository dates if available
                 if 'fork_created_at' in student and student['fork_created_at']:
                     student_record['fork_created_at'] = student['fork_created_at']
-                
+                    students_with_forks += 1
+
                 if 'last_updated_at' in student and student['last_updated_at']:
                     student_record['last_updated_at'] = student['last_updated_at']
-                
+
                 if 'resolution_time_hours' in student and student['resolution_time_hours'] is not None:
                     student_record['resolution_time_hours'] = student['resolution_time_hours']
-                
+
                 supabase_data.append(student_record)
-                
+
             except (KeyError, ValueError, TypeError) as e:
                 logger.error(f"Invalid student data: {student}, Error: {e}")
                 continue
-        
+
         if not supabase_data:
             logger.warning("No valid students data to sync")
             return
-        
+
         # Retry mechanism
         for attempt in range(self.config.max_retries):
             try:
-                result = self.supabase.table('students').upsert(
+                self.supabase.table('zzz_students').upsert(
                     supabase_data,
                     on_conflict='github_username'
                 ).execute()
-                logger.info(f"Successfully synced {len(supabase_data)} students")
+                logger.info(f"✓ Synced {len(supabase_data)} students ({students_with_forks} with forks)")
                 return
-                
+
             except APIError as e:
                 logger.error(f"Supabase API error (attempt {attempt + 1}): {e}")
                 if attempt == self.config.max_retries - 1:
@@ -723,13 +844,14 @@ class ClassroomSupabaseSync:
         # Retry mechanism
         for attempt in range(self.config.max_retries):
             try:
-                result = self.supabase.table('assignments').upsert(
-                    assignments_data, 
+                self.supabase.table('zzz_assignments').upsert(
+                    assignments_data,
                     on_conflict='name'
                 ).execute()
-                logger.info(f"Successfully synced {len(assignments_data)} assignments")
+                assignment_names = [a['name'] for a in assignments_data]
+                logger.info(f"✓ Synced {len(assignments_data)} assignments: {', '.join(assignment_names[:3])}{'...' if len(assignment_names) > 3 else ''}")
                 return
-                
+
             except APIError as e:
                 logger.error(f"Supabase API error (attempt {attempt + 1}): {e}")
                 if attempt == self.config.max_retries - 1:
@@ -782,16 +904,20 @@ class ClassroomSupabaseSync:
             logger.warning("No valid grades data to sync")
             return
         
+        # Calculate statistics for logging
+        unique_students = len(set(g['github_username'] for g in grades_data))
+        unique_assignments = len(set(g['assignment_name'] for g in grades_data))
+
         # Retry mechanism
         for attempt in range(self.config.max_retries):
             try:
-                result = self.supabase.table('grades').upsert(
+                self.supabase.table('zzz_grades').upsert(
                     grades_data,
                     on_conflict='github_username,assignment_name'
                 ).execute()
-                logger.info(f"Successfully synced {len(grades_data)} grade records")
+                logger.info(f"✓ Synced {len(grades_data)} grade records ({unique_students} students × {unique_assignments} assignments)")
                 return
-                
+
             except APIError as e:
                 logger.error(f"Supabase API error (attempt {attempt + 1}): {e}")
                 if attempt == self.config.max_retries - 1:
@@ -800,7 +926,107 @@ class ClassroomSupabaseSync:
                 logger.error(f"Unexpected error syncing grades (attempt {attempt + 1}): {e}")
                 if attempt == self.config.max_retries - 1:
                     raise SupabaseSyncError(f"Failed to sync grades: {e}")
-    
+
+    def sync_assignment_attempts_to_supabase(self, attempts_data: List[Dict[str, Any]]) -> None:
+        """
+        Sync assignment attempts (workflow runs) to Supabase with retry mechanism.
+
+        Args:
+            attempts_data: List of attempt data dictionaries with workflow statistics
+
+        Raises:
+            SupabaseSyncError: If sync fails after retries
+        """
+        if not attempts_data:
+            logger.warning("No assignment attempts to sync")
+            return
+
+        logger.info(f"Syncing {len(attempts_data)} assignment attempt records to Supabase")
+
+        # Get user_id and assignment_id mappings from database
+        try:
+            # Get all users to map github_username -> user_id
+            users_result = self.supabase.table('zzz_students').select('id, github_username').execute()
+            user_map = {u['github_username']: u['id'] for u in users_result.data if u.get('github_username')}
+
+            # Get all assignments to map assignment_name -> assignment_id
+            assignments_result = self.supabase.table('zzz_assignments').select('id, name').execute()
+            assignment_map = {a['name']: a['id'] for a in assignments_result.data}
+
+            logger.debug(f"Mapped {len(user_map)} users and {len(assignment_map)} assignments")
+
+        except Exception as e:
+            logger.error(f"Failed to get user/assignment mappings: {e}")
+            raise SupabaseSyncError(f"Failed to get mappings: {e}")
+
+        # Prepare data with UUID mappings
+        prepared_attempts = []
+        for attempt in attempts_data:
+            try:
+                github_username = attempt['github_username']
+                assignment_name = attempt['assignment_name']
+
+                # Get UUIDs from mappings
+                user_id = user_map.get(github_username)
+                assignment_id = assignment_map.get(assignment_name)
+
+                if not user_id:
+                    logger.warning(f"User not found in zzz_students: {github_username}, skipping")
+                    continue
+
+                if not assignment_id:
+                    logger.warning(f"Assignment not found in zzz_assignments: {assignment_name}, skipping")
+                    continue
+
+                attempt_record = {
+                    "user_id": user_id,
+                    "assignment_id": assignment_id,
+                    "repo_url": attempt['repo_url'],
+                    "total_attempts": attempt['total_attempts'],
+                    "successful_attempts": attempt['successful_attempts'],
+                    "failed_attempts": attempt['failed_attempts'],
+                    "first_attempt_at": attempt['first_attempt_at'],
+                    "last_attempt_at": attempt['last_attempt_at'],
+                    "fork_created_at": attempt.get('fork_created_at'),
+                    "fork_updated_at": attempt.get('fork_updated_at'),
+                    "updated_at": datetime.datetime.now().isoformat()
+                }
+
+                prepared_attempts.append(attempt_record)
+
+            except (KeyError, ValueError, TypeError) as e:
+                logger.error(f"Invalid attempt data: {attempt}, Error: {e}")
+                continue
+
+        if not prepared_attempts:
+            logger.warning("No valid assignment attempts data to sync")
+            return
+
+        # Calculate statistics for logging
+        total_attempts = sum(a['total_attempts'] for a in prepared_attempts)
+        successful = sum(a['successful_attempts'] for a in prepared_attempts)
+        failed = sum(a['failed_attempts'] for a in prepared_attempts)
+
+        # Retry mechanism
+        for attempt in range(self.config.max_retries):
+            try:
+                # Upsert based on user_id and assignment_id combination
+                self.supabase.table('zzz_assignment_attempts').upsert(
+                    prepared_attempts,
+                    on_conflict='user_id,assignment_id'
+                ).execute()
+                logger.info(f"✓ Synced {len(prepared_attempts)} assignment attempts (Total: {total_attempts}, Success: {successful}, Failed: {failed})")
+                return
+
+            except APIError as e:
+                logger.error(f"Supabase API error (attempt {attempt + 1}): {e}")
+                if attempt == self.config.max_retries - 1:
+                    raise SupabaseSyncError(f"Failed to sync assignment attempts after {self.config.max_retries} attempts: {e}")
+            except Exception as e:
+                logger.error(f"Unexpected error syncing assignment attempts (attempt {attempt + 1}): {e}")
+                if attempt == self.config.max_retries - 1:
+                    raise SupabaseSyncError(f"Failed to sync assignment attempts: {e}")
+
     def process_assignments_in_memory(self, assignment_data: List[Tuple[str, str, str]]) -> pd.DataFrame:
         """
         Process all assignments and consolidate grades in memory.
@@ -817,6 +1043,7 @@ class ClassroomSupabaseSync:
         students_with_repo_info = {}  # Store student data with repository info
         assignment_fork_dates = {}  # Store (username, assignment) -> fork_created_at mapping
         assignment_fork_updated = {}  # Store (username, assignment) -> fork_updated_at mapping
+        assignment_attempts = []  # Store workflow run attempts data
         
         for assignment_id, assignment_name, assignment_repo in assignment_data:
             logger.info(f"Processing assignment: {assignment_name} (ID: {assignment_id})")
@@ -863,16 +1090,27 @@ class ClassroomSupabaseSync:
                     grades_df = grades_df[['github_username', 'assignment_name', 'points_awarded']]
                     
                     # Get repository information for each student for THIS assignment
-                    logger.info(f"Getting repository information for {len(df)} students...")
+                    logger.info(f"Processing {len(df)} students for assignment {formatted_name}...")
                     for _, row in df.iterrows():
                         github_username = str(row['github_username']).strip()
                         student_repo_url = row.get('student_repository_url', '')
+                        points_awarded = row.get('points_awarded', 0)
+
+                        # Highlight tracked username if configured
+                        if self.config.search_username and github_username.lower() == self.config.search_username.lower():
+                            logger.info(f"  ★ TRACKED USER: {github_username} - {formatted_name}: {points_awarded} points")
+
+                        # Log specific student progress (useful for debugging)
+                        logger.debug(f"  → {github_username}: {points_awarded} points")
 
                         if student_repo_url:
                             logger.debug(f"Getting repo info for assignment: {formatted_name}")
 
                             # Get repository information
                             repo_info = self.get_repository_info(student_repo_url)
+
+                            # Get workflow runs (GitHub Actions attempts)
+                            workflow_info = self.get_workflow_runs(student_repo_url)
 
                             if repo_info:
                                 # Verify this is actually a fork (has parent repository)
@@ -882,6 +1120,22 @@ class ClassroomSupabaseSync:
                                     assignment_fork_updated[(github_username, formatted_name)] = repo_info['updated_at']
 
                                     logger.debug(f"Fork found for assignment: {formatted_name}")
+
+                                    # Store workflow attempts data if available
+                                    if workflow_info:
+                                        assignment_attempts.append({
+                                            'github_username': github_username,
+                                            'assignment_name': formatted_name,
+                                            'repo_url': student_repo_url,
+                                            'total_attempts': workflow_info['total_attempts'],
+                                            'successful_attempts': workflow_info['successful_attempts'],
+                                            'failed_attempts': workflow_info['failed_attempts'],
+                                            'first_attempt_at': workflow_info['first_attempt_at'],
+                                            'last_attempt_at': workflow_info['last_attempt_at'],
+                                            'fork_created_at': repo_info['created_at'],
+                                            'fork_updated_at': repo_info['updated_at']
+                                        })
+                                        logger.debug(f"Recorded {workflow_info['total_attempts']} workflow attempts for {github_username}")
 
                                     # Also update students_with_repo_info if not already set (for students table)
                                     if github_username not in students_with_repo_info:
@@ -950,6 +1204,7 @@ class ClassroomSupabaseSync:
                 self.sync_assignments_to_supabase(assignment_info)
                 self.sync_students_to_supabase(list(students_with_repo_info.values()))
                 self.sync_grades_to_supabase(consolidated_df)
+                self.sync_assignment_attempts_to_supabase(assignment_attempts)
                 self.refresh_admin_leaderboard()
             except SupabaseSyncError as e:
                 logger.error(f"Failed to sync data to Supabase: {e}")
@@ -963,39 +1218,52 @@ class ClassroomSupabaseSync:
     def run_sync(self) -> None:
         """
         Main method to run the complete sync process.
-        
+
         Raises:
             GitHubCLIError: If GitHub CLI operations fail
             SupabaseSyncError: If Supabase operations fail
             DataValidationError: If data validation fails
         """
-        logger.info("Starting GitHub Classroom to Supabase sync process")
-        
+        logger.info("=" * 60)
+        logger.info("Starting GitHub Classroom sync to Supabase")
+        logger.info("=" * 60)
+
         try:
             # Get classroom ID
             classroom_id = self.get_classroom_id(self.config.classroom_name)
             if not classroom_id:
                 raise GitHubCLIError(f"Classroom '{self.config.classroom_name}' not found")
-            
+
             # Get assignments
             assignment_data = self.get_assignments(classroom_id)
             if not assignment_data:
                 logger.warning("No assignments found")
                 return
-            
+
             # Filter by specific assignment ID if provided
             if self.config.assignment_id:
                 assignment_data = [a for a in assignment_data if a[0] == self.config.assignment_id]
                 logger.info(f"Filtered to specific assignment ID: {self.config.assignment_id}")
-            
+
             # Process assignments
             consolidated_df = self.process_assignments_in_memory(assignment_data)
-            
+
+            # Print summary
+            logger.info("=" * 60)
             if not consolidated_df.empty:
-                logger.info(f"Sync completed successfully. Processed {len(consolidated_df)} grade records")
+                unique_students = len(consolidated_df['github_username'].unique())
+                unique_assignments = len(consolidated_df['assignment_name'].unique())
+
+                logger.info("✓ Sync completed successfully!")
+                logger.info(f"  • {unique_students} students")
+                logger.info(f"  • {unique_assignments} assignments")
+                logger.info(f"  • {len(consolidated_df)} grade records")
+                logger.info("")
+                logger.info("Check your Supabase dashboard to verify the changes")
             else:
                 logger.warning("Sync completed but no data was processed")
-                
+            logger.info("=" * 60)
+
         except Exception as e:
             logger.error(f"Error during sync process: {e}")
             raise
@@ -1004,15 +1272,19 @@ def create_config_from_env() -> SyncConfig:
     """Create SyncConfig from environment variables."""
     required_vars = ['SUPABASE_URL', 'SUPABASE_KEY', 'CLASSROOM_NAME']
     missing_vars = [var for var in required_vars if not os.getenv(var)]
-    
+
     if missing_vars:
         raise ValueError(f"Missing required environment variables: {missing_vars}")
-    
+
     # Check for GitHub token (optional but recommended)
     github_token = os.getenv('GITHUB_TOKEN')
     if not github_token:
         logger.warning("GITHUB_TOKEN not found. Repository information will be limited by rate limits.")
-    
+
+    search_username = os.getenv('SEARCH_USERNAME')
+    if search_username:
+        logger.info(f"Tracking user: {search_username}")
+
     return SyncConfig(
         supabase_url=os.getenv('SUPABASE_URL'),
         supabase_key=os.getenv('SUPABASE_KEY'),
@@ -1020,7 +1292,8 @@ def create_config_from_env() -> SyncConfig:
         assignment_id=os.getenv('ASSIGNMENT_ID'),
         log_level=os.getenv('LOG_LEVEL', 'INFO'),
         max_retries=int(os.getenv('MAX_RETRIES', '3')),
-        timeout_seconds=int(os.getenv('TIMEOUT_SECONDS', '30'))
+        timeout_seconds=int(os.getenv('TIMEOUT_SECONDS', '30')),
+        search_username=search_username
     )
 
 def main():

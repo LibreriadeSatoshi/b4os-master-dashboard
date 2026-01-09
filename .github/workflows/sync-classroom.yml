@@ -106,7 +106,7 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GH_CLASSROOM_TOKEN }}
         CLASSROOM_NAME: ${{ inputs.classroom_name || 'B4OS-Dev-2025' }}
         ASSIGNMENT_ID: ${{ inputs.assignment_id || '' }}
-        LOG_LEVEL: DEBUG
+        LOG_LEVEL: INFO
       run: |
         cd b4os-backend
         python sync-classroom.py

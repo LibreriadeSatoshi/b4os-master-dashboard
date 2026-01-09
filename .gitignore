@@ -9,6 +9,7 @@ dist/
 build/
 
 # Environment variables
+.venv
 .env
 .env.local
 .env.development.local

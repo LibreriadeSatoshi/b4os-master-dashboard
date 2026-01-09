@@ -60,8 +60,8 @@ def check_requirements():
     # Check if Supabase credentials are configured
     # Map from .env.local variable names to expected names
     supabase_url = os.getenv('NEXT_PUBLIC_SUPABASE_URL') or os.getenv('SUPABASE_URL')
-    # Use anon key for now (service role key seems to have issues)
-    supabase_key = os.getenv('NEXT_PUBLIC_SUPABASE_ANON_KEY') or os.getenv('SUPABASE_SERVICE_ROLE_KEY') or os.getenv('SUPABASE_KEY')
+    # Use service role key for write operations (anon key only has read permissions)
+    supabase_key = os.getenv('SUPABASE_SERVICE_ROLE_KEY') or os.getenv('NEXT_PUBLIC_SUPABASE_ANON_KEY') or os.getenv('SUPABASE_KEY')
     
     if not supabase_url or not supabase_key:
         print("❌ Supabase credentials not found in environment variables")
