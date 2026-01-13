@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
     if (available) {
       // Get available reviewers (admins)
       const { data, error } = await supabase
-        .from('authorized_users')
+        .from('zzz_authorized_users')
         .select('github_username, full_name, email')
         .eq('role', 'admin')
         .eq('status', 'active')
@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
 
     if (studentUsername) {
       const { data, error } = await supabase
-        .from('student_reviewers')
+        .from('zzz_student_reviewers')
         .select('*')
         .eq('student_username', studentUsername)
         .order('created_at', { ascending: false })
@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
 
     if (reviewerUsername) {
       const { data, error } = await supabase
-        .from('student_reviewers')
+        .from('zzz_student_reviewers')
         .select('*')
         .eq('reviewer_username', reviewerUsername)
         .order('created_at', { ascending: false })
@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
 
     // Get all reviewers grouped
     const { data, error } = await supabase
-      .from('student_reviewers')
+      .from('zzz_student_reviewers')
       .select('*')
       .order('student_username')
       .order('created_at', { ascending: false })
@@ -112,7 +112,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { error } = await supabase
-      .from('student_reviewers')
+      .from('zzz_student_reviewers')
       .insert({
         student_username: studentUsername,
         reviewer_username: reviewerUsername,
@@ -177,7 +177,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const { error } = await supabase
-      .from('student_reviewers')
+      .from('zzz_student_reviewers')
       .update(updateData)
       .eq('id', id)
 
@@ -215,7 +215,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     const { error } = await supabase
-      .from('student_reviewers')
+      .from('zzz_student_reviewers')
       .delete()
       .eq('id', id)
 

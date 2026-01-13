@@ -80,11 +80,11 @@ export async function getDashboardData(): Promise<DashboardData> {
 async function getLeaderboard() {
   try {
     const { data: allStudents } = await supabase
-      .from('students')
+      .from('zzz_students')
       .select('github_username')
 
     const { data: adminData } = await supabase
-      .from('admin_leaderboard')
+      .from('zzz_admin_leaderboard')
       .select('*')
       .limit(1000)
       .order('ranking_position')
@@ -123,7 +123,7 @@ async function getLeaderboard() {
 
     // Fallback to consolidated_grades
     const { data: gradesData } = await supabase
-      .from('consolidated_grades')
+      .from('zzz_consolidated_grades')
       .select('*')
 
     if (!gradesData || gradesData.length === 0) {
@@ -131,7 +131,7 @@ async function getLeaderboard() {
     }
 
     const { data: gradesWithFork } = await supabase
-      .from('grades')
+      .from('zzz_grades')
       .select('github_username, assignment_name, fork_created_at')
 
     const acceptedAssignments = new Map<string, Set<string>>()
@@ -146,7 +146,7 @@ async function getLeaderboard() {
 
     // Get total number of assignments in the system (for fair comparison between students)
     const { data: allAssignments } = await supabase
-      .from('assignments')
+      .from('zzz_assignments')
       .select('name')
     const totalSystemAssignments = allAssignments?.length || 1
 
@@ -243,7 +243,7 @@ async function getAnonymizedLeaderboard(currentUsername?: string) {
 async function getAssignments() {
   try {
     const { data, error } = await supabase
-      .from('assignments')
+      .from('zzz_assignments')
       .select('id, name, points_available, updated_at')
       .order('id', { ascending: true })
 
@@ -259,7 +259,7 @@ async function getAssignments() {
 async function getStudentStats(leaderboard: LeaderboardEntry[]) {
   try {
     const { data: statsData, error: statsError } = await supabase
-      .from('dashboard_stats')
+      .from('zzz_dashboard_stats')
       .select('*')
       .single()
 
@@ -275,8 +275,8 @@ async function getStudentStats(leaderboard: LeaderboardEntry[]) {
 
     // Fallback
     const [assignmentsResult, gradesResult] = await Promise.all([
-      supabase.from('assignments').select('id'),
-      supabase.from('grades').select('points_awarded, github_username')
+      supabase.from('zzz_assignments').select('id'),
+      supabase.from('zzz_grades').select('points_awarded, github_username')
     ])
 
     const assignments = assignmentsResult
@@ -321,7 +321,7 @@ async function getStudentStats(leaderboard: LeaderboardEntry[]) {
 async function getAllStudentReviewersGrouped() {
   try {
     const { data, error } = await supabase
-      .from('student_reviewers')
+      .from('zzz_student_reviewers')
       .select('*')
       .order('student_username')
       .order('created_at', { ascending: false })
@@ -349,7 +349,7 @@ async function getAllStudentReviewersGrouped() {
 async function getGrades() {
   try {
     const { data, error } = await supabase
-      .from('grades')
+      .from('zzz_grades')
       .select('github_username, assignment_name, points_awarded, fork_created_at, fork_updated_at')
       .order('github_username')
 
