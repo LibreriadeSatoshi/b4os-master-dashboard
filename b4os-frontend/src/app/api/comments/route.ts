@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
     }
 
     let query = supabase
-      .from('review_comments')
+      .from('zzz_review_comments')
       .select('*')
       .eq('student_username', studentUsername)
       .order('created_at', { ascending: false })
@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { error } = await supabase
-      .from('review_comments')
+      .from('zzz_review_comments')
       .insert({
         student_username: studentUsername,
         reviewer_username: reviewerUsername,

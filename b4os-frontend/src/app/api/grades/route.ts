@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     const assignmentName = searchParams.get('assignment')
 
     let query = supabase
-      .from('grades')
+      .from('zzz_grades')
       .select('github_username, assignment_name, points_awarded')
       .order('github_username')
 

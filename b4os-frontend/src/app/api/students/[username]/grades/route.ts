@@ -21,7 +21,7 @@ export async function GET(
     const { username } = await params
 
     const { data: grades, error: gradesError } = await supabase
-      .from('grades')
+      .from('zzz_grades')
       .select('assignment_name, points_awarded, fork_created_at, fork_updated_at')
       .eq('github_username', username)
       .order('assignment_name')
@@ -31,7 +31,7 @@ export async function GET(
     }
 
     const { data: assignments, error: assignmentsError } = await supabase
-      .from('assignments')
+      .from('zzz_assignments')
       .select('name, points_available')
       .order('name')
 
@@ -47,7 +47,7 @@ export async function GET(
 
     // For assignments with no points_available, use max points_awarded
     const { data: allGrades } = await supabase
-      .from('grades')
+      .from('zzz_grades')
       .select('assignment_name, points_awarded')
 
     if (allGrades) {
