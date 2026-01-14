@@ -1,4 +1,4 @@
-import { supabase } from './supabase'
+import { getServerSupabaseClient } from './supabase'
 import { logger } from './logger'
 
 export interface AuthorizedUser {
@@ -30,7 +30,8 @@ export class AuthorizationService {
     try {
       logger.info(`Checking authorization for GitHub user ID: ${githubId}`)
 
-      const { data, error } = await supabase
+      const supabaseClient = getServerSupabaseClient()
+      const { data, error } = await supabaseClient
         .from('zzz_authorized_users')
         .select('*')
         .eq('github_id', githubId)
@@ -89,7 +90,8 @@ export class AuthorizationService {
     try {
       logger.info(`Checking authorization for GitHub username: ${githubUsername}`)
 
-      const { data, error } = await supabase
+      const supabaseClient = getServerSupabaseClient()
+      const { data, error } = await supabaseClient
         .from('zzz_authorized_users')
         .select('*')
         .eq('github_username', githubUsername)
@@ -145,7 +147,8 @@ export class AuthorizationService {
    */
   static async updateLastLogin(githubId: number): Promise<void> {
     try {
-      const { error } = await supabase
+      const supabaseClient = getServerSupabaseClient()
+      const { error } = await supabaseClient
         .from('zzz_authorized_users')
         .update({ 
           last_login: new Date().toISOString(),
@@ -166,7 +169,8 @@ export class AuthorizationService {
    */
   static async getAuthorizationStats() {
     try {
-      const { data, error } = await supabase
+      const supabaseClient = getServerSupabaseClient()
+      const { data, error } = await supabaseClient
         .from('zzz_authorized_users_stats')
         .select('*')
         .single()
@@ -188,7 +192,8 @@ export class AuthorizationService {
    */
   static async getAllAuthorizedUsers(): Promise<AuthorizedUser[]> {
     try {
-      const { data, error } = await supabase
+      const supabaseClient = getServerSupabaseClient()
+      const { data, error } = await supabaseClient
         .from('zzz_authorized_users')
         .select('*')
         .order('created_at', { ascending: false })
@@ -217,7 +222,8 @@ export class AuthorizationService {
     notes?: string
   }): Promise<{ success: boolean; error?: string }> {
     try {
-      const { error } = await supabase
+      const supabaseClient = getServerSupabaseClient()
+      const { error } = await supabaseClient
         .from('zzz_authorized_users')
         .insert([userData])
 
@@ -248,7 +254,8 @@ export class AuthorizationService {
     status: 'active' | 'inactive' | 'pending'
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      const { error } = await supabase
+      const supabaseClient = getServerSupabaseClient()
+      const { error } = await supabaseClient
         .from('zzz_authorized_users')
         .update({ 
           status,
