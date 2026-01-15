@@ -30,6 +30,10 @@ interface DashboardClientProps {
 
 export default function DashboardClient({ initialData, assignments }: DashboardClientProps) {
   const { t } = useTranslation()
+
+  // 🔍 DEBUG: Log stats from API
+  console.log('🔍 DashboardClient initialData.stats:', initialData.stats)
+
   const [leaderboard, setLeaderboard] = useState(initialData.leaderboard || [])
   const [stats, setStats] = useState(initialData.stats || {
     totalStudents: 0,
