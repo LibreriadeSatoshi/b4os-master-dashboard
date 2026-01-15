@@ -32,30 +32,55 @@ export const authOptions = {
       // Solo verificar para GitHub OAuth
       if (account.provider === 'github') {
         try {
-          // Bypass para admin inicial en desarrollo
+          // Bypass para admin en desarrollo
           const initialAdmin = process.env.INITIAL_ADMIN_USERNAME
           if (process.env.NODE_ENV === 'development' && profile.login === initialAdmin) {
-            logger.info(`Development bypass: Admin user ${profile.login} allowed`)
+            if (process.env.NODE_ENV === 'development') {
+              logger.info(`Development bypass: Admin user ${profile.login} allowed`)
+            }
             return true
           }
 
           const githubId = parseInt(profile.id || '0')
+          
+          // Solo log en desarrollo
+          if (process.env.NODE_ENV === 'development') {
+            logger.info('🔍 Checking authorization in database...', { githubId, username: profile.login })
+          }
+
           const authResult = await AuthorizationService.checkUserAuthorization(githubId)
 
           if (!authResult.isAuthorized) {
-            logger.warn(`Unauthorized access attempt by GitHub user: ${profile.login} (ID: ${githubId})`)
-            return false // Esto impedirá el login
+            // Siempre loguear fallos de autorización
+            logger.warn('❌ AUTHORIZATION FAILED', {
+              username: profile.login,
+              githubId,
+              reason: authResult.error || 'User not in authorized_users table or status != active'
+            })
+            return false 
           }
 
-          logger.info(`User ${profile.login} pre-authorized successfully`)
+          if (process.env.NODE_ENV === 'development') {
+            logger.info('✅ AUTHORIZATION SUCCESS', {
+              username: profile.login,
+              githubId,
+              role: authResult.role
+            })
+          }
           return true
         } catch (error) {
-          logger.error('Error checking user authorization during signIn:', error)
+          logger.error('💥 EXCEPTION in signIn callback:', {
+            error: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack : undefined,
+            username: profile.login,
+            githubId: profile.id
+          })
 
-          // En desarrollo, permitir admin inicial si hay error de DB
           const initialAdmin = process.env.INITIAL_ADMIN_USERNAME
           if (process.env.NODE_ENV === 'development' && profile.login === initialAdmin) {
-            logger.info(`Development bypass: Admin user ${profile.login} allowed due to DB error`)
+            if (process.env.NODE_ENV === 'development') {
+              logger.info(`Development bypass: Admin user ${profile.login} allowed due to DB error`)
+            }
             return true
           }
           return false
@@ -65,7 +90,6 @@ export const authOptions = {
     },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     async jwt({ token, account, profile }: any) {
-      // En el primer login (account existe)
       if (account) {
         token.accessToken = account.access_token
         token.githubId = (profile as { id?: string })?.id
@@ -84,13 +108,16 @@ export const authOptions = {
           token.role = authResult.role as UserRole
           token.isAuthorized = true
           token.lastValidated = Date.now()
-          logger.info(`User ${token.username} authorized with role: ${token.role}`)
+          
+          if (process.env.NODE_ENV === 'development') {
+            logger.info(`User ${token.username} authorized with role: ${token.role}`)
+          }
         } catch (error) {
           logger.error('Error checking user authorization', error)
           throw new Error('Usuario no autorizado para acceder al sistema')
         }
       } else {
-        // En requests subsecuentes, revalidar cada 5 minutos
+        // En requests subsecuentes
         const lastValidated = token.lastValidated as number || 0
         const fiveMinutes = 5 * 60 * 1000
 
@@ -100,14 +127,19 @@ export const authOptions = {
             const authResult = await AuthorizationService.checkUserAuthorization(githubId)
 
             if (!authResult.isAuthorized) {
+              // Siempre loguear revocaciones de autorización
               logger.warn(`User ${token.username} authorization revoked`)
               throw new Error('Usuario no autorizado')
             }
 
-            // Actualizar rol por si cambió
+            // Actualizar rol
             token.role = authResult.role as UserRole
             token.lastValidated = Date.now()
-            logger.info(`User ${token.username} revalidated successfully`)
+            
+            // Solo log en desarrollo
+            if (process.env.NODE_ENV === 'development') {
+              logger.info(`User ${token.username} revalidated successfully`)
+            }
           } catch (error) {
             logger.error('Error revalidating user authorization', error)
             throw new Error('Usuario no autorizado para acceder al sistema')

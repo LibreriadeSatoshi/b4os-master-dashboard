@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { logger } from './logger'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
@@ -14,6 +14,44 @@ export const supabase = createClient(
   supabaseUrl || 'https://placeholder.supabase.co',
   supabaseKey || 'placeholder-key'
 )
+
+/**
+ * Get a server-side Supabase client with service role key
+ * This bypasses Row Level Security (RLS) and should only be used in server-side code
+ */
+export function getServerSupabaseClient(): SupabaseClient {
+  const serverSupabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+  const serverSupabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+
+  // 🔍 DEBUG: Log environment state
+  logger.info('🔍 [getServerSupabaseClient] Creating client', {
+    hasUrl: !!serverSupabaseUrl,
+    urlPrefix: serverSupabaseUrl?.substring(0, 30),
+    hasServiceKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+    hasAnonKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    usingServiceKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY
+  })
+
+  if (!serverSupabaseUrl) {
+    logger.error('Missing NEXT_PUBLIC_SUPABASE_URL')
+    throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL environment variable')
+  }
+
+  if (!serverSupabaseKey) {
+    logger.error('Missing Supabase key', {
+      hasServiceKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+      hasAnonKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    })
+    throw new Error('Missing SUPABASE_SERVICE_ROLE_KEY or NEXT_PUBLIC_SUPABASE_ANON_KEY environment variable')
+  }
+
+  return createClient(serverSupabaseUrl, serverSupabaseKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  })
+}
 
 // Types for GitHub Classroom data
 export interface Student {

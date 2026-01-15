@@ -331,7 +331,7 @@ async function getStudentStats(leaderboard: LeaderboardEntry[] = []) {
     
     // Calculate average score from valid grades
     const avgScore = validGrades.length > 0
-      ? Math.round(validGrades.reduce((sum, g) => sum + (g.points_awarded || 0), 0) / validGrades.length)
+      ? Math.round(validGrades.reduce((sum, g) => sum + (parseInt(g.points_awarded) || 0), 0) / validGrades.length)
       : 0
 
     // Calculate completion rate: students with at least one grade / total students

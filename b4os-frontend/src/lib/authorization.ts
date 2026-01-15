@@ -1,4 +1,4 @@
-import { supabase } from './supabase'
+import { getServerSupabaseClient } from './supabase'
 import { logger } from './logger'
 
 export interface AuthorizedUser {
@@ -28,14 +28,34 @@ export class AuthorizationService {
    */
   static async checkUserAuthorization(githubId: number): Promise<AuthorizationResult> {
     try {
-      logger.info(`Checking authorization for GitHub user ID: ${githubId}`)
+      // Solo log en desarrollo
+      if (process.env.NODE_ENV === 'development') {
+        logger.info('🔍 [AuthorizationService] Starting check', { githubId })
+      }
 
-      const { data, error } = await supabase
+      const supabaseClient = getServerSupabaseClient()
+      
+      if (process.env.NODE_ENV === 'development') {
+        logger.info('🔍 [AuthorizationService] Supabase client created', {
+          hasClient: !!supabaseClient
+        })
+      }
+
+      const { data, error } = await supabaseClient
         .from('zzz_authorized_users')
         .select('*')
         .eq('github_id', githubId)
         .eq('status', 'active')
         .single()
+
+      if (process.env.NODE_ENV === 'development') {
+        logger.info('🔍 [AuthorizationService] Query executed', {
+          hasData: !!data,
+          hasError: !!error,
+          errorCode: error?.code,
+          errorMessage: error?.message
+        })
+      }
 
       if (error) {
         if (error.code === 'PGRST116') {
@@ -65,7 +85,9 @@ export class AuthorizationService {
       // Actualizar último login
       await this.updateLastLogin(githubId)
 
-      logger.info(`User ${data.github_username} authorized with role: ${data.role}`)
+      if (process.env.NODE_ENV === 'development') {
+        logger.info(`User ${data.github_username} authorized with role: ${data.role}`)
+      }
       
       return {
         isAuthorized: true,
@@ -87,9 +109,12 @@ export class AuthorizationService {
    */
   static async checkUserAuthorizationByUsername(githubUsername: string): Promise<AuthorizationResult> {
     try {
-      logger.info(`Checking authorization for GitHub username: ${githubUsername}`)
+      if (process.env.NODE_ENV === 'development') {
+        logger.info(`Checking authorization for GitHub username: ${githubUsername}`)
+      }
 
-      const { data, error } = await supabase
+      const supabaseClient = getServerSupabaseClient()
+      const { data, error } = await supabaseClient
         .from('zzz_authorized_users')
         .select('*')
         .eq('github_username', githubUsername)
@@ -123,7 +148,10 @@ export class AuthorizationService {
       // Actualizar último login
       await this.updateLastLogin(data.github_id)
 
-      logger.info(`User ${data.github_username} authorized with role: ${data.role}`)
+      // Solo log en desarrollo
+      if (process.env.NODE_ENV === 'development') {
+        logger.info(`User ${data.github_username} authorized with role: ${data.role}`)
+      }
       
       return {
         isAuthorized: true,
@@ -145,7 +173,8 @@ export class AuthorizationService {
    */
   static async updateLastLogin(githubId: number): Promise<void> {
     try {
-      const { error } = await supabase
+      const supabaseClient = getServerSupabaseClient()
+      const { error } = await supabaseClient
         .from('zzz_authorized_users')
         .update({ 
           last_login: new Date().toISOString(),
@@ -166,7 +195,8 @@ export class AuthorizationService {
    */
   static async getAuthorizationStats() {
     try {
-      const { data, error } = await supabase
+      const supabaseClient = getServerSupabaseClient()
+      const { data, error } = await supabaseClient
         .from('zzz_authorized_users_stats')
         .select('*')
         .single()
@@ -188,7 +218,8 @@ export class AuthorizationService {
    */
   static async getAllAuthorizedUsers(): Promise<AuthorizedUser[]> {
     try {
-      const { data, error } = await supabase
+      const supabaseClient = getServerSupabaseClient()
+      const { data, error } = await supabaseClient
         .from('zzz_authorized_users')
         .select('*')
         .order('created_at', { ascending: false })
@@ -217,7 +248,8 @@ export class AuthorizationService {
     notes?: string
   }): Promise<{ success: boolean; error?: string }> {
     try {
-      const { error } = await supabase
+      const supabaseClient = getServerSupabaseClient()
+      const { error } = await supabaseClient
         .from('zzz_authorized_users')
         .insert([userData])
 
@@ -248,7 +280,8 @@ export class AuthorizationService {
     status: 'active' | 'inactive' | 'pending'
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      const { error } = await supabase
+      const supabaseClient = getServerSupabaseClient()
+      const { error } = await supabaseClient
         .from('zzz_authorized_users')
         .update({ 
           status,

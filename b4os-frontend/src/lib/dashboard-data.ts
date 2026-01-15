@@ -292,7 +292,7 @@ async function getStudentStats(leaderboard: LeaderboardEntry[]) {
     const validGrades = grades.data?.filter(g => g.points_awarded !== null && g.points_awarded > 0) || []
     
     const avgScore = validGrades.length > 0
-      ? Math.round(validGrades.reduce((sum, g) => sum + (g.points_awarded || 0), 0) / validGrades.length)
+      ? Math.round(validGrades.reduce((sum, g) => sum + (parseInt(g.points_awarded) || 0), 0) / validGrades.length)
       : 0
 
     const completionRate = totalStudents > 0 && totalAssignments > 0
