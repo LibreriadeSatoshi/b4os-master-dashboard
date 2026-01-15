@@ -82,12 +82,9 @@ export async function GET() {
     const allGradesData = gradesResult.status === 'fulfilled' ? gradesResult.value : []
 
     // Convert Map to object if needed
-    const reviewersGrouped = reviewersData instanceof Map
-      ? Object.fromEntries(reviewersData)
+    const reviewersGrouped = reviewersData instanceof Map 
+      ? Object.fromEntries(reviewersData) 
       : {}
-
-    // 🔍 DEBUG: Log stats before sending
-    console.log('🔍 [API] Sending stats to client:', JSON.stringify(statsData))
 
     return NextResponse.json({
       leaderboard: leaderboard || [],
