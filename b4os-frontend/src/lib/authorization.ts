@@ -28,12 +28,18 @@ export class AuthorizationService {
    */
   static async checkUserAuthorization(githubId: number): Promise<AuthorizationResult> {
     try {
-      logger.info('🔍 [AuthorizationService] Starting check', { githubId })
+      // Solo log en desarrollo
+      if (process.env.NODE_ENV === 'development') {
+        logger.info('🔍 [AuthorizationService] Starting check', { githubId })
+      }
 
       const supabaseClient = getServerSupabaseClient()
-      logger.info('🔍 [AuthorizationService] Supabase client created', {
-        hasClient: !!supabaseClient
-      })
+      
+      if (process.env.NODE_ENV === 'development') {
+        logger.info('🔍 [AuthorizationService] Supabase client created', {
+          hasClient: !!supabaseClient
+        })
+      }
 
       const { data, error } = await supabaseClient
         .from('zzz_authorized_users')
@@ -42,12 +48,14 @@ export class AuthorizationService {
         .eq('status', 'active')
         .single()
 
-      logger.info('🔍 [AuthorizationService] Query executed', {
-        hasData: !!data,
-        hasError: !!error,
-        errorCode: error?.code,
-        errorMessage: error?.message
-      })
+      if (process.env.NODE_ENV === 'development') {
+        logger.info('🔍 [AuthorizationService] Query executed', {
+          hasData: !!data,
+          hasError: !!error,
+          errorCode: error?.code,
+          errorMessage: error?.message
+        })
+      }
 
       if (error) {
         if (error.code === 'PGRST116') {
@@ -77,7 +85,9 @@ export class AuthorizationService {
       // Actualizar último login
       await this.updateLastLogin(githubId)
 
-      logger.info(`User ${data.github_username} authorized with role: ${data.role}`)
+      if (process.env.NODE_ENV === 'development') {
+        logger.info(`User ${data.github_username} authorized with role: ${data.role}`)
+      }
       
       return {
         isAuthorized: true,
@@ -99,7 +109,9 @@ export class AuthorizationService {
    */
   static async checkUserAuthorizationByUsername(githubUsername: string): Promise<AuthorizationResult> {
     try {
-      logger.info(`Checking authorization for GitHub username: ${githubUsername}`)
+      if (process.env.NODE_ENV === 'development') {
+        logger.info(`Checking authorization for GitHub username: ${githubUsername}`)
+      }
 
       const supabaseClient = getServerSupabaseClient()
       const { data, error } = await supabaseClient
@@ -136,7 +148,10 @@ export class AuthorizationService {
       // Actualizar último login
       await this.updateLastLogin(data.github_id)
 
-      logger.info(`User ${data.github_username} authorized with role: ${data.role}`)
+      // Solo log en desarrollo
+      if (process.env.NODE_ENV === 'development') {
+        logger.info(`User ${data.github_username} authorized with role: ${data.role}`)
+      }
       
       return {
         isAuthorized: true,
