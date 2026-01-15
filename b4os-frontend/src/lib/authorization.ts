@@ -28,15 +28,26 @@ export class AuthorizationService {
    */
   static async checkUserAuthorization(githubId: number): Promise<AuthorizationResult> {
     try {
-      logger.info(`Checking authorization for GitHub user ID: ${githubId}`)
+      logger.info('🔍 [AuthorizationService] Starting check', { githubId })
 
       const supabaseClient = getServerSupabaseClient()
+      logger.info('🔍 [AuthorizationService] Supabase client created', {
+        hasClient: !!supabaseClient
+      })
+
       const { data, error } = await supabaseClient
         .from('zzz_authorized_users')
         .select('*')
         .eq('github_id', githubId)
         .eq('status', 'active')
         .single()
+
+      logger.info('🔍 [AuthorizationService] Query executed', {
+        hasData: !!data,
+        hasError: !!error,
+        errorCode: error?.code,
+        errorMessage: error?.message
+      })
 
       if (error) {
         if (error.code === 'PGRST116') {

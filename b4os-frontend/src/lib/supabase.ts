@@ -23,6 +23,15 @@ export function getServerSupabaseClient(): SupabaseClient {
   const serverSupabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
   const serverSupabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
 
+  // 🔍 DEBUG: Log environment state
+  logger.info('🔍 [getServerSupabaseClient] Creating client', {
+    hasUrl: !!serverSupabaseUrl,
+    urlPrefix: serverSupabaseUrl?.substring(0, 30),
+    hasServiceKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+    hasAnonKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    usingServiceKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY
+  })
+
   if (!serverSupabaseUrl) {
     logger.error('Missing NEXT_PUBLIC_SUPABASE_URL')
     throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL environment variable')

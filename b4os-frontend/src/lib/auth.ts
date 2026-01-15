@@ -32,6 +32,14 @@ export const authOptions = {
       // Solo verificar para GitHub OAuth
       if (account.provider === 'github') {
         try {
+          // 🔍 DEBUG: Log initial state
+          logger.info('=== SIGNIN CALLBACK START ===', {
+            username: profile.login,
+            githubId: profile.id,
+            nodeEnv: process.env.NODE_ENV,
+            initialAdmin: process.env.INITIAL_ADMIN_USERNAME
+          })
+
           // Bypass para admin inicial en desarrollo
           const initialAdmin = process.env.INITIAL_ADMIN_USERNAME
           if (process.env.NODE_ENV === 'development' && profile.login === initialAdmin) {
@@ -40,17 +48,39 @@ export const authOptions = {
           }
 
           const githubId = parseInt(profile.id || '0')
+          logger.info('🔍 Checking authorization in database...', { githubId, username: profile.login })
+
           const authResult = await AuthorizationService.checkUserAuthorization(githubId)
 
+          logger.info('🔍 Authorization result:', {
+            isAuthorized: authResult.isAuthorized,
+            role: authResult.role,
+            error: authResult.error,
+            username: profile.login
+          })
+
           if (!authResult.isAuthorized) {
-            logger.warn(`Unauthorized access attempt by GitHub user: ${profile.login} (ID: ${githubId})`)
+            logger.warn('❌ AUTHORIZATION FAILED', {
+              username: profile.login,
+              githubId,
+              reason: authResult.error || 'User not in authorized_users table or status != active'
+            })
             return false // Esto impedirá el login
           }
 
-          logger.info(`User ${profile.login} pre-authorized successfully`)
+          logger.info('✅ AUTHORIZATION SUCCESS', {
+            username: profile.login,
+            githubId,
+            role: authResult.role
+          })
           return true
         } catch (error) {
-          logger.error('Error checking user authorization during signIn:', error)
+          logger.error('💥 EXCEPTION in signIn callback:', {
+            error: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack : undefined,
+            username: profile.login,
+            githubId: profile.id
+          })
 
           // En desarrollo, permitir admin inicial si hay error de DB
           const initialAdmin = process.env.INITIAL_ADMIN_USERNAME
