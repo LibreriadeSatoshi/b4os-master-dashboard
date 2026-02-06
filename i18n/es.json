@@ -88,7 +88,9 @@
     },
     "showing": "Mostrando {filteredCount} de {totalStudents} estudiantes",
     "students_count": "{count} estudiantes",
-    "no_data_description": "Los datos aparecerán cuando se sincronicen desde GitHub Classroom"
+    "no_data_description": "Los datos aparecerán cuando se sincronicen desde GitHub Classroom",
+    "download_report": "Descargar informe CSV",
+    "download_report_error": "No se pudo descargar el informe"
   },
   "filters": {
     "title": "Filtros Inteligentes",
