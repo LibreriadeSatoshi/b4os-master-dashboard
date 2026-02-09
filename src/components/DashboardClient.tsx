@@ -21,14 +21,16 @@ import {
   Play,
   CheckCircle2,
   Circle,
+  Download,
 } from "lucide-react"
 
 interface DashboardClientProps {
   initialData: DashboardData
   assignments: Assignment[]
+  canExportReport?: boolean
 }
 
-export default function DashboardClient({ initialData, assignments }: DashboardClientProps) {
+export default function DashboardClient({ initialData, assignments, canExportReport = false }: DashboardClientProps) {
   const { t } = useTranslation()
   const [leaderboard, setLeaderboard] = useState(initialData.leaderboard || [])
   const [stats, setStats] = useState(initialData.stats || {
@@ -337,6 +339,26 @@ export default function DashboardClient({ initialData, assignments }: DashboardC
     }
   }, [initialData.stats])
 
+  const handleDownloadReport = useCallback(async () => {
+    try {
+      const response = await fetch('/api/reports/course-status')
+      if (!response.ok) throw new Error('Export failed')
+      const blob = await response.blob()
+      const disposition = response.headers.get('Content-Disposition')
+      const filenameMatch = disposition?.match(/filename="?([^";\n]+)"?/)
+      const filename = filenameMatch?.[1] ?? `course-status-report-${new Date().toISOString().slice(0, 10)}.csv`
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Course status report download failed:', error)
+      alert(t('dashboard.download_report_error'))
+    }
+  }, [t])
+
   // Render leaderboard - this is a large component, keeping it here for now
   // In a real implementation, you'd split this into smaller components
   return (
@@ -395,10 +417,23 @@ export default function DashboardClient({ initialData, assignments }: DashboardC
                 {t('leaderboard.title')}
               </h3>
             </div>
-            <div className="flex items-center gap-2 px-4 py-2 bg-orange-100 text-orange-700 rounded-full text-sm font-medium">
-              <UsersIcon className="w-4 h-4" />
-              {filters !== null ? filteredStudents.length : leaderboard.length}{" "}
-              {t('leaderboard.columns.students')}
+            <div className="flex items-center gap-3">
+              {canExportReport && (
+                <button
+                  type="button"
+                  onClick={handleDownloadReport}
+                  className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-full text-sm font-medium transition-colors border border-gray-200"
+                  title={t('dashboard.download_report')}
+                >
+                  <Download className="w-4 h-4" />
+                  {t('dashboard.download_report')}
+                </button>
+              )}
+              <div className="flex items-center gap-2 px-4 py-2 bg-orange-100 text-orange-700 rounded-full text-sm font-medium">
+                <UsersIcon className="w-4 h-4" />
+                {filters !== null ? filteredStudents.length : leaderboard.length}{" "}
+                {t('leaderboard.columns.students')}
+              </div>
             </div>
           </div>
 

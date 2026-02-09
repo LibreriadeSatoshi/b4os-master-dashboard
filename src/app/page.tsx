@@ -89,6 +89,7 @@ export default async function Home() {
         <DashboardClient 
           initialData={dashboardData}
           assignments={dashboardData.assignments}
+          canExportReport={session.user?.role === 'admin' || session.user?.role === 'instructor'}
         />
       </div>
     </ProtectedContent>
