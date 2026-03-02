@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { SupabaseService, type StudentReviewer, type ReviewComment } from "@/lib/supabase";
 import { useTranslation } from '@/hooks/useTranslation';
@@ -23,11 +23,11 @@ import {
 } from "lucide-react";
 
 interface ReviewSystemProps {
-  studentUsername: string;
-  assignmentName: string;
-  repositoryUrl?: string;
-  onClose?: () => void;
-  onDataUpdate?: () => void;
+  readonly studentUsername: string;
+  readonly assignmentName: string;
+  readonly repositoryUrl?: string;
+  readonly onClose?: () => void;
+  readonly onDataUpdate?: () => void;
 }
 
 export default function ReviewSystem({
@@ -68,25 +68,8 @@ export default function ReviewSystem({
     duration: number | null;
   }>({ startDate: null, endDate: null, duration: null });
 
-  useEffect(() => {
-    loadData();
-  }, [studentUsername, assignmentName]);
-
-  // Close menu when clicking outside
-  useEffect(() => {
-    const handleClickOutside = () => {
-      if (openMenuId !== null) {
-        setOpenMenuId(null);
-      }
-    };
-
-    if (openMenuId !== null) {
-      document.addEventListener('click', handleClickOutside);
-      return () => document.removeEventListener('click', handleClickOutside);
-    }
-  }, [openMenuId]);
-
-  const loadData = async () => {
+  // Load data function
+  const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
       const [reviewersData, commentsData, availableReviewersData, gradesData] = await Promise.all([
@@ -132,7 +115,25 @@ export default function ReviewSystem({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [studentUsername, assignmentName]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = () => {
+      if (openMenuId !== null) {
+        setOpenMenuId(null);
+      }
+    };
+
+    if (openMenuId !== null) {
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
+    }
+  }, [openMenuId]);
 
   const handleAssignReviewer = async () => {
     console.log("Attempting to assign reviewer:", {
@@ -293,15 +294,15 @@ export default function ReviewSystem({
 
     try {
       const result = await SupabaseService.updateStudentFeedback(reviewerId, feedback);
-      if (!result.success) {
-        alert(`Error: ${result.error}`);
-      } else {
+      if (result.success) {
         // Update original feedback to mark as saved
         setOriginalFeedback(prev => {
           const newMap = new Map(prev);
           newMap.set(reviewerId, feedback);
           return newMap;
         });
+      } else {
+        alert(`Error: ${result.error}`);
       }
     } catch (error) {
       console.error("Error saving feedback:", error);
@@ -318,19 +319,6 @@ export default function ReviewSystem({
       return newMap;
     });
   };
-
-  // const getStatusIcon = (status: string) => {
-  //   switch (status) {
-  //     case "completed":
-  //       return <CheckCircle className="w-4 h-4" />;
-  //     case "in_progress":
-  //       return <Clock className="w-4 h-4" />;
-  //     case "pending":
-  //       return <AlertCircle className="w-4 h-4" />;
-  //     default:
-  //       return <AlertCircle className="w-4 h-4" />;
-  //   }
-  // };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -381,6 +369,20 @@ export default function ReviewSystem({
       month: 'short',
       year: 'numeric'
     });
+  };
+
+  // Helper function to get score dot color
+  const getScoreDotColor = (num: number, score: number | undefined): string => {
+    if (num > (score || 0)) {
+      return 'bg-gray-200';
+    }
+    if (num <= 6) {
+      return 'bg-red-400';
+    }
+    if (num <= 8) {
+      return 'bg-yellow-400';
+    }
+    return 'bg-green-400';
   };
 
   return (
@@ -436,7 +438,7 @@ export default function ReviewSystem({
               </a>
             </div>
             {challengeDates.startDate && (
-              <div className="flex-shrink-0 ml-4 text-right">
+              <div className="shrink-0 ml-4 text-right">
                 <div className="flex items-center gap-1.5 text-xs text-gray-600">
                   <Calendar className="w-3.5 h-3.5 text-gray-400" />
                   <span>
@@ -557,7 +559,7 @@ export default function ReviewSystem({
 
                     {/* Dropdown Menu */}
                     {openMenuId === reviewer.id && (
-                      <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-10 min-w-[160px]">
+                      <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-10 min-w-40">
                         <button
                           onClick={() => {
                             handleRemoveReviewer(reviewer.id);
@@ -576,7 +578,7 @@ export default function ReviewSystem({
                   <div className="p-4">
                     <div className="flex items-center justify-between pr-8">
                       <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 bg-blue-50 rounded-full flex items-center justify-center flex-shrink-0">
+                        <div className="w-10 h-10 bg-blue-50 rounded-full flex items-center justify-center shrink-0">
                           <User className="w-5 h-5 text-blue-600" />
                         </div>
                         <div className="min-w-0 flex-1">
@@ -586,7 +588,7 @@ export default function ReviewSystem({
                           </p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-3 flex-shrink-0 ml-4">
+                      <div className="flex items-center gap-3 shrink-0 ml-4">
                         <span className={`px-2 py-1 text-xs font-medium rounded ${getStatusColor(reviewer.status)}`}>
                           <span className="capitalize whitespace-nowrap">{reviewer.status.replace('_', ' ')}</span>
                         </span>
@@ -599,15 +601,7 @@ export default function ReviewSystem({
                               {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
                                 <div
                                   key={num}
-                                  className={`w-3 h-3 rounded-full ${
-                                    num <= (reviewer.code_quality_score || 0)
-                                      ? num <= 6
-                                        ? 'bg-red-400'
-                                        : num <= 8
-                                        ? 'bg-yellow-400'
-                                        : 'bg-green-400'
-                                      : 'bg-gray-200'
-                                  }`}
+                                  className={`w-3 h-3 rounded-full ${getScoreDotColor(num, reviewer.code_quality_score)}`}
                                 />
                               ))}
                             </div>
@@ -783,7 +777,7 @@ export default function ReviewSystem({
               <div key={comment.id} className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow">
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <div className="w-8 h-8 bg-gray-50 rounded-full flex items-center justify-center flex-shrink-0">
+                    <div className="w-8 h-8 bg-gray-50 rounded-full flex items-center justify-center shrink-0">
                       <User className="w-4 h-4 text-gray-600" />
                     </div>
                     <div className="min-w-0">
@@ -793,7 +787,7 @@ export default function ReviewSystem({
                       </p>
                     </div>
                   </div>
-                  <div className="flex gap-1.5 flex-shrink-0">
+                  <div className="flex gap-1.5 shrink-0">
                     <span className={`px-2 py-0.5 text-xs font-medium rounded ${getCommentTypeColor(comment.comment_type)}`}>
                       {comment.comment_type.replace('_', ' ')}
                     </span>

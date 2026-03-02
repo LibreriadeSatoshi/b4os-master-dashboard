@@ -32,19 +32,20 @@ class Logger {
     if (!this.shouldLog(level)) return
 
     const entry = this.formatMessage(level, message, data, context)
+    const contextPrefix = context ? `[${context}] ` : ''
     
     switch (level) {
       case 'debug':
-        console.log(`[DEBUG] ${entry.timestamp} ${context ? `[${context}] ` : ''}${message}`, data)
+        console.log(`[DEBUG] ${entry.timestamp} ${contextPrefix}${message}`, data)
         break
       case 'info':
-        console.info(`[INFO] ${entry.timestamp} ${context ? `[${context}] ` : ''}${message}`, data)
+        console.info(`[INFO] ${entry.timestamp} ${contextPrefix}${message}`, data)
         break
       case 'warn':
-        console.warn(`[WARN] ${entry.timestamp} ${context ? `[${context}] ` : ''}${message}`, data)
+        console.warn(`[WARN] ${entry.timestamp} ${contextPrefix}${message}`, data)
         break
       case 'error':
-        console.error(`[ERROR] ${entry.timestamp} ${context ? `[${context}] ` : ''}${message}`, data)
+        console.error(`[ERROR] ${entry.timestamp} ${contextPrefix}${message}`, data)
         break
     }
   }

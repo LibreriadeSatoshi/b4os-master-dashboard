@@ -282,9 +282,14 @@ async function getStudentStats(leaderboard: LeaderboardEntry[]) {
     const assignments = assignmentsResult
     const grades = gradesResult
 
-    const totalStudents = leaderboard.length > 0 
-      ? leaderboard.length 
-      : (grades.data ? new Set(grades.data.map(g => g.github_username)).size : 0)
+    let totalStudents: number
+    if (leaderboard.length > 0) {
+      totalStudents = leaderboard.length
+    } else if (grades.data) {
+      totalStudents = new Set(grades.data.map(g => g.github_username)).size
+    } else {
+      totalStudents = 0
+    }
     
     const totalAssignments = assignments.data?.length || 0
     const totalGrades = grades.data?.length || 0
@@ -292,7 +297,7 @@ async function getStudentStats(leaderboard: LeaderboardEntry[]) {
     const validGrades = grades.data?.filter(g => g.points_awarded !== null && g.points_awarded > 0) || []
     
     const avgScore = validGrades.length > 0
-      ? Math.round(validGrades.reduce((sum, g) => sum + (parseInt(g.points_awarded) || 0), 0) / validGrades.length)
+      ? Math.round(validGrades.reduce((sum, g) => sum + (Number.parseInt(g.points_awarded) || 0), 0) / validGrades.length)
       : 0
 
     const completionRate = totalStudents > 0 && totalAssignments > 0
