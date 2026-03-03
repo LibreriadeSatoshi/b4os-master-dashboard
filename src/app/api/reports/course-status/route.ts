@@ -62,8 +62,9 @@ async function getCommitCount(repoName: string, author: string): Promise<number>
     // GitHub returns total count in Link header for pagination
     const linkHeader = response.headers.get('Link')
     if (linkHeader) {
-      const match = linkHeader.match(/page=(\d+)>; rel="last"/)
-      if (match) return parseInt(match[1], 10)
+      const regex = /page=(\d+)>; rel="last"/
+      const match = regex.exec(linkHeader)
+      if (match) return Number.parseInt(match[1], 10)
     }
 
     // No pagination means <= 1 commit, fetch actual count with larger page
@@ -107,7 +108,7 @@ function escapeCsvCell(value: string | number | null | undefined): string {
   if (value === null || value === undefined) return ''
   const s = String(value)
   if (s.includes('"') || s.includes(',') || s.includes('\n') || s.includes('\r')) {
-    return `"${s.replace(/"/g, '""')}"`
+    return `"${s.replaceAll('"', '""')}"`
   }
   return s
 }
@@ -117,8 +118,144 @@ function csvLine(cells: (string | number | null | undefined)[]): string {
   return cells.map(escapeCsvCell).join(',')
 }
 
+/** Sort assignments by predefined order */
+function sortAssignmentsByOrder(assignmentsRaw: Array<{ name: string; id: string; points_available: number | null }>) {
+  return [...assignmentsRaw].sort((a, b) => {
+    const indexA = ASSIGNMENT_ORDER.indexOf(a.name)
+    const indexB = ASSIGNMENT_ORDER.indexOf(b.name)
+    const orderA = indexA === -1 ? ASSIGNMENT_ORDER.length : indexA
+    const orderB = indexB === -1 ? ASSIGNMENT_ORDER.length : indexB
+    return orderA - orderB
+  })
+}
+
+/** Build grades map for quick lookup */
+function buildGradesMap(grades: Array<{ github_username: string; assignment_name: string; points_awarded: number | null; fork_created_at: string | null; fork_updated_at: string | null }>) {
+  const gradesByKey = new Map<string, { points_awarded: number | null; fork_created_at: string | null; fork_updated_at: string | null }>()
+  grades.forEach(g => {
+    gradesByKey.set(`${g.github_username}|${g.assignment_name}`, {
+      points_awarded: g.points_awarded ?? null,
+      fork_created_at: g.fork_created_at ?? null,
+      fork_updated_at: g.fork_updated_at ?? null
+    })
+  })
+  return gradesByKey
+}
+
+/** Get all student usernames from students and grades */
+function getAllStudentUsernames(
+  students: Array<{ github_username: string }>,
+  grades: Array<{ github_username: string }>
+) {
+  const studentUsernames = new Set(students.map(s => s.github_username))
+  grades.forEach(g => studentUsernames.add(g.github_username))
+  return Array.from(studentUsernames).sort((a, b) => a.localeCompare(b))
+}
+
+/** Calculate statistics */
+function calculateStats(
+  allStudents: string[],
+  assignments: Array<{ name: string }>,
+  grades: Array<{ points_awarded: number | null }>
+) {
+  const totalStudents = allStudents.length
+  const totalAssignments = assignments.length
+  const totalGrades = grades.length
+  const avgScore = totalGrades > 0
+    ? Math.round(grades.reduce((sum, g) => sum + (Number(g.points_awarded) || 0), 0) / totalGrades)
+    : 0
+  const completionRate = totalStudents > 0 && totalAssignments > 0
+    ? Math.round((totalGrades / (totalStudents * totalAssignments)) * 100)
+    : 0
+
+  return { totalStudents, totalAssignments, totalGrades, avgScore, completionRate }
+}
+
+/** Build list of repos to fetch commit counts */
+function buildReposToFetch(
+  allStudents: string[],
+  assignments: Array<{ name: string }>,
+  gradesByKey: Map<string, { fork_created_at: string | null }>
+) {
+  const reposToFetch: Array<{ key: string; repoName: string; username: string }> = []
+  for (const username of allStudents) {
+    for (const assignment of assignments) {
+      const key = `${username}|${assignment.name}`
+      const grade = gradesByKey.get(key)
+      if (grade?.fork_created_at) {
+        const repoName = `${assignment.name}-${username}`
+        reposToFetch.push({ key, repoName, username })
+      }
+    }
+  }
+  return reposToFetch
+}
+
+/** Generate CSV content */
+function generateCsv(
+  assignments: Array<{ name: string; points_available: number | null }>,
+  gradesByKey: Map<string, { points_awarded: number | null; fork_created_at: string | null; fork_updated_at: string | null }>,
+  allStudents: string[],
+  commitCounts: Map<string, number>,
+  stats: { totalStudents: number; totalAssignments: number; totalGrades: number; avgScore: number; completionRate: number }
+) {
+  const exportDate = new Date().toISOString().slice(0, 19)
+
+  const headerRow = [
+    'github_username',
+    'assignment_name',
+    'points_available',
+    'points_awarded',
+    'challenge_accepted_at',
+    'challenge_updated_at',
+    'commits',
+    'Resolution time'
+  ]
+
+  const lines: string[] = [
+    csvLine(['B4OS Course Status Report', '', '', '', '', '', '', '']),
+    csvLine(['Export date', exportDate, '', '', '', '', '', '']),
+    csvLine(['Total students', stats.totalStudents, '', '', '', '', '', '']),
+    csvLine(['Total assignments', stats.totalAssignments, '', '', '', '', '', '']),
+    csvLine(['Total grades', stats.totalGrades, '', '', '', '', '', '']),
+    csvLine(['Average score (points)', stats.avgScore, '', '', '', '', '', '']),
+    csvLine(['Completion rate (%)', stats.completionRate, '', '', '', '', '', '']),
+    csvLine([]),
+    csvLine(headerRow)
+  ]
+
+  for (const username of allStudents) {
+    for (const assignment of assignments) {
+      const key = `${username}|${assignment.name}`
+      const pointsAvailable = assignment.points_available ?? 0
+      const grade = gradesByKey.get(key)
+      const pointsAwarded = grade?.points_awarded ?? 0
+      const challengeAccepted = grade?.fork_created_at ?? ''
+      const challengeUpdated = grade?.fork_updated_at ?? ''
+      const commits = commitCounts.get(key) ?? 0
+      const resolutionTime = formatResolutionTime(grade?.fork_created_at ?? null, grade?.fork_updated_at ?? null)
+
+      lines.push(
+        csvLine([
+          username,
+          assignment.name,
+          pointsAvailable,
+          pointsAwarded,
+          challengeAccepted,
+          challengeUpdated,
+          commits,
+          resolutionTime
+        ])
+      )
+    }
+  }
+
+  return lines.join('\r\n')
+}
+
 export async function GET() {
   try {
+    // Authorization check
     const session = await getServerSession(authOptions)
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -137,6 +274,7 @@ export async function GET() {
       )
     }
 
+    // Fetch data from database
     const [assignmentsResult, gradesResult, studentsResult] = await Promise.all([
       supabase
         .from('zzz_assignments')
@@ -153,109 +291,24 @@ export async function GET() {
     ])
 
     const assignmentsRaw = assignmentsResult.data || []
-    // Sort assignments by predefined order
-    const assignments = [...assignmentsRaw].sort((a, b) => {
-      const indexA = ASSIGNMENT_ORDER.indexOf(a.name)
-      const indexB = ASSIGNMENT_ORDER.indexOf(b.name)
-      // If not in list, put at the end
-      const orderA = indexA === -1 ? ASSIGNMENT_ORDER.length : indexA
-      const orderB = indexB === -1 ? ASSIGNMENT_ORDER.length : indexB
-      return orderA - orderB
-    })
     const grades = gradesResult.data || []
     const students = studentsResult.data || []
 
-    const assignmentMap = new Map(assignments.map(a => [a.name, a.points_available ?? 0]))
-    const gradesByKey = new Map<string, { points_awarded: number | null; fork_created_at: string | null; fork_updated_at: string | null }>()
-    grades.forEach(g => {
-      gradesByKey.set(`${g.github_username}|${g.assignment_name}`, {
-        points_awarded: g.points_awarded ?? null,
-        fork_created_at: g.fork_created_at ?? null,
-        fork_updated_at: g.fork_updated_at ?? null
-      })
-    })
+    // Process data
+    const assignments = sortAssignmentsByOrder(assignmentsRaw)
+    const gradesByKey = buildGradesMap(grades)
+    const allStudents = getAllStudentUsernames(students, grades)
 
-    const studentUsernames = new Set(students.map(s => s.github_username))
-    grades.forEach(g => studentUsernames.add(g.github_username))
-    const allStudents = Array.from(studentUsernames).sort()
-
-    const exportDate = new Date().toISOString().slice(0, 19)
-    const totalStudents = allStudents.length
-    const totalAssignments = assignments.length
-    const totalGrades = grades.length
-    const avgScore = totalGrades > 0
-      ? Math.round(grades.reduce((sum, g) => sum + (Number(g.points_awarded) || 0), 0) / totalGrades)
-      : 0
-    const completionRate = totalStudents > 0 && totalAssignments > 0
-      ? Math.round((totalGrades / (totalStudents * totalAssignments)) * 100)
-      : 0
-
-    // Build list of repos that need commit counts (only those with forks)
-    const reposToFetch: Array<{ key: string; repoName: string; username: string }> = []
-    for (const username of allStudents) {
-      for (const assignment of assignments) {
-        const key = `${username}|${assignment.name}`
-        const grade = gradesByKey.get(key)
-        if (grade?.fork_created_at) {
-          const repoName = `${assignment.name}-${username}`
-          reposToFetch.push({ key, repoName, username })
-        }
-      }
-    }
+    // Calculate stats
+    const stats = calculateStats(allStudents, assignments, grades)
 
     // Fetch commit counts from GitHub API
+    const reposToFetch = buildReposToFetch(allStudents, assignments, gradesByKey)
     const commitCounts = await getCommitsInBatches(reposToFetch)
 
-    const headerRow = [
-      'github_username',
-      'assignment_name',
-      'points_available',
-      'points_awarded',
-      'challenge_accepted_at',
-      'challenge_updated_at',
-      'commits',
-      'Resolution time'
-    ]
+    // Generate CSV
+    const csv = generateCsv(assignments, gradesByKey, allStudents, commitCounts, stats)
 
-    const lines: string[] = [
-      csvLine(['B4OS Course Status Report', '', '', '', '', '', '', '']),
-      csvLine(['Export date', exportDate, '', '', '', '', '', '']),
-      csvLine(['Total students', totalStudents, '', '', '', '', '', '']),
-      csvLine(['Total assignments', totalAssignments, '', '', '', '', '', '']),
-      csvLine(['Total grades', totalGrades, '', '', '', '', '', '']),
-      csvLine(['Average score (points)', avgScore, '', '', '', '', '', '']),
-      csvLine(['Completion rate (%)', completionRate, '', '', '', '', '', '']),
-      csvLine([]),
-      csvLine(headerRow)
-    ]
-
-    for (const username of allStudents) {
-      for (const assignment of assignments) {
-        const key = `${username}|${assignment.name}`
-        const pointsAvailable = assignment.points_available ?? 0
-        const grade = gradesByKey.get(key)
-        const pointsAwarded = grade?.points_awarded ?? 0
-        const challengeAccepted = grade?.fork_created_at ?? ''
-        const challengeUpdated = grade?.fork_updated_at ?? ''
-        const commits = commitCounts.get(key) ?? 0
-        const resolutionTime = formatResolutionTime(grade?.fork_created_at ?? null, grade?.fork_updated_at ?? null)
-
-        lines.push(
-          csvLine([
-            username,
-            assignment.name,
-            pointsAvailable,
-            pointsAwarded,
-            challengeAccepted,
-            challengeUpdated,
-            commits,
-            resolutionTime
-          ])
-        )
-      }
-    }
-
-    const csv = lines.join('\r\n')
     const filename = `course-status-report-${new Date().toISOString().slice(0, 10)}.csv`
 
     return new NextResponse(csv, {
