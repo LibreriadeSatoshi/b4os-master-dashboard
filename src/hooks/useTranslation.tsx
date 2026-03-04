@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, ReactNode, useMemo, useCallback } from 'react'
 
 // Tipos para las traducciones
 type TranslationKeys = {
@@ -352,12 +352,15 @@ function getNestedTranslation(obj: Record<string, unknown>, path: string): strin
 
 // Función para formatear strings con variables
 function formatString(template: string, variables: Record<string, string | number> = {}): string {
-  return template.replace(/\{(\w+)\}/g, (match, key) => {
-    return variables[key] !== undefined ? String(variables[key]) : match
+  return template.replaceAll(/\{(\w+)\}/g, (match, key) => {
+    if (variables[key] !== undefined) {
+      return String(variables[key])
+    }
+    return match
   })
 }
 
-export function TranslationProvider({ children }: { children: ReactNode }) {
+export function TranslationProvider({ children }: { readonly children: ReactNode }) {
   const [language, setLanguage] = useState<Language>('es')
   const [translations, setTranslations] = useState<TranslationKeys | null>(null)
 
@@ -381,7 +384,7 @@ export function TranslationProvider({ children }: { children: ReactNode }) {
   }, [language])
 
   // Función de traducción
-  const t = (key: string, variables?: Record<string, string | number>): string => {
+  const t = useCallback((key: string, variables?: Record<string, string | number>): string => {
     if (!translations) return key
     
     const translation = getNestedTranslation(translations, key)
@@ -391,7 +394,7 @@ export function TranslationProvider({ children }: { children: ReactNode }) {
     }
     
     return key
-  }
+  }, [translations])
 
   // Persistir idioma en localStorage
   useEffect(() => {
@@ -405,8 +408,13 @@ export function TranslationProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('b4os-language', language)
   }, [language])
 
+  const contextValue = useMemo(
+    () => ({ language, setLanguage, t, translations }),
+    [language, translations, t]
+  )
+
   return (
-    <TranslationContext.Provider value={{ language, setLanguage, t, translations }}>
+    <TranslationContext.Provider value={contextValue}>
       {children}
     </TranslationContext.Provider>
   )

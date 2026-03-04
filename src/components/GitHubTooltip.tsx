@@ -1,13 +1,14 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { ExternalLinkIcon, Github, Calendar } from 'lucide-react'
+import Image from 'next/image'
+import { ExternalLinkIcon, Calendar } from 'lucide-react'
 import { useTranslation } from '@/hooks/useTranslation'
 
 interface GitHubTooltipProps {
-  username: string
-  children: React.ReactNode
-  index?: number
+  readonly username: string
+  readonly children: React.ReactNode
+  readonly index?: number
 }
 
 interface GitHubRepo {
@@ -32,6 +33,7 @@ export default function GitHubTooltip({ username, children, index }: GitHubToolt
     if (showTooltip && repos.length === 0) {
       fetchGitHubData()
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showTooltip, username])
 
   const fetchGitHubData = async () => {
@@ -83,11 +85,79 @@ export default function GitHubTooltip({ username, children, index }: GitHubToolt
     }
   }
 
+  const renderReposContent = () => {
+    if (loading) {
+      return (
+        <div className="text-center py-4">
+          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-orange-500 mx-auto mb-2"></div>
+          <div className="text-xs text-gray-500">{t('github_tooltip.loading_repos')}</div>
+        </div>
+      )
+    }
+
+    if (error) {
+      return (
+        <div className="text-center py-4">
+          <div className="text-red-500 text-xs mb-2">⚠️</div>
+          <div className="text-xs text-gray-500">{t('github_tooltip.error_loading_repos')}</div>
+        </div>
+      )
+    }
+
+    if (repos.length > 0) {
+      return (
+        <div>
+          <div className="text-xs font-medium text-gray-700 mb-3">{t('github_tooltip.recent_repos')}</div>
+          <div className="space-y-2">
+            {repos.map((repo) => (
+              <div key={repo.name} className="p-2 bg-gray-50 rounded-md border border-gray-200">
+                <div className="flex items-center gap-2">
+                  <svg
+                    viewBox="0 0 24 24"
+                    className="w-3 h-3 text-gray-500 shrink-0"
+                    fill="currentColor"
+                  >
+                    <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                  </svg>
+                  <div className="flex-1 min-w-0">
+                    <a
+                      href={repo.html_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs font-semibold text-blue-600 hover:text-blue-800 hover:underline truncate block"
+                    >
+                      {repo.name}
+                    </a>
+                    <div className="text-xs text-gray-500 mt-1">
+                      {getTimeAgo(repo.updated_at)}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )
+    }
+
+    return (
+      <div className="text-center py-4">
+        <div className="text-gray-400 text-2xl mb-2">📁</div>
+        <div className="text-xs text-gray-500">{t('github_tooltip.no_recent_repos')}</div>
+        <div className="text-xs text-gray-400 mt-1">{t('github_tooltip.no_activity_30_days')}</div>
+      </div>
+    )
+  }
+
   return (
-    <div
-      className="relative inline-block"
+    <button
+      type="button"
+      className="relative inline-block cursor-pointer bg-transparent border-none p-0 m-0 text-inherit font-inherit"
       onMouseEnter={() => setShowTooltip(true)}
       onMouseLeave={() => setShowTooltip(false)}
+      onFocus={() => setShowTooltip(true)}
+      onBlur={() => setShowTooltip(false)}
+      aria-label={`GitHub info for ${username}`}
     >
       {children}
 
@@ -100,10 +170,12 @@ export default function GitHubTooltip({ username, children, index }: GitHubToolt
           <div className="bg-white text-gray-900 text-sm rounded-lg py-3 px-4 shadow-lg border border-gray-200 min-w-80 max-w-96">
             {/* Header */}
             <div className="flex items-center gap-3 mb-3 pb-3 border-b border-gray-100">
-              <img
+              <Image
                 src={`https://github.com/${username}.png`}
                 alt={username}
-                className="w-8 h-8 rounded-full border border-gray-200"
+                width={32}
+                height={32}
+                className="rounded-full border border-gray-200"
               />
               <div className="flex-1 min-w-0">
                 <div className="font-semibold text-gray-900 text-sm">@{username}</div>
@@ -120,49 +192,7 @@ export default function GitHubTooltip({ username, children, index }: GitHubToolt
             </div>
 
             {/* Recent Repositories */}
-            {loading ? (
-              <div className="text-center py-4">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-orange-500 mx-auto mb-2"></div>
-                <div className="text-xs text-gray-500">{t('github_tooltip.loading_repos')}</div>
-              </div>
-            ) : error ? (
-              <div className="text-center py-4">
-                <div className="text-red-500 text-xs mb-2">⚠️</div>
-                <div className="text-xs text-gray-500">{t('github_tooltip.error_loading_repos')}</div>
-              </div>
-            ) : repos.length > 0 ? (
-              <div>
-                <div className="text-xs font-medium text-gray-700 mb-3">{t('github_tooltip.recent_repos')}</div>
-                <div className="space-y-2">
-                  {repos.map((repo) => (
-                    <div key={repo.name} className="p-2 bg-gray-50 rounded-md border border-gray-200">
-                      <div className="flex items-center gap-2">
-                        <Github className="w-3 h-3 text-gray-500 flex-shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <a
-                            href={repo.html_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-xs font-semibold text-blue-600 hover:text-blue-800 hover:underline truncate block"
-                          >
-                            {repo.name}
-                          </a>
-                          <div className="text-xs text-gray-500 mt-1">
-                            {getTimeAgo(repo.updated_at)}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <div className="text-center py-4">
-                <div className="text-gray-400 text-2xl mb-2">📁</div>
-                <div className="text-xs text-gray-500">{t('github_tooltip.no_recent_repos')}</div>
-                <div className="text-xs text-gray-400 mt-1">{t('github_tooltip.no_activity_30_days')}</div>
-              </div>
-            )}
+            {renderReposContent()}
 
             {/* Footer */}
             <div className="mt-3 pt-2 border-t border-gray-100">
@@ -191,6 +221,6 @@ export default function GitHubTooltip({ username, children, index }: GitHubToolt
           </div>
         </div>
       )}
-    </div>
+    </button>
   )
 }

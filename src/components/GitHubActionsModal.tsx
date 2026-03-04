@@ -1,13 +1,13 @@
 'use client'
 
-import { X, ExternalLink, Clock, WorkflowIcon } from 'lucide-react'
+import { X, ExternalLink, WorkflowIcon } from 'lucide-react'
 import { useTranslation } from '@/hooks/useTranslation'
 
 interface GitHubActionsModalProps {
-  isOpen: boolean
-  onClose: () => void
-  username: string
-  assignmentName: string
+  readonly isOpen: boolean
+  readonly onClose: () => void
+  readonly username: string
+  readonly assignmentName: string
 }
 
 export default function GitHubActionsModal({ 
@@ -25,9 +25,11 @@ export default function GitHubActionsModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div 
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+      <button
+        type="button"
+        className="absolute inset-0 bg-black/50 backdrop-blur-sm cursor-default border-none p-0 m-0"
         onClick={onClose}
+        aria-label="Close modal"
       />
       
       <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-hidden">

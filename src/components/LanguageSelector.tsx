@@ -57,11 +57,13 @@ export default function LanguageSelector() {
       {isOpen && mounted && createPortal(
         <>
           {/* Overlay para cerrar el dropdown */}
-          <div
-            className="fixed inset-0"
-            style={{ zIndex: 999998 }}
+          <button
+            type="button"
+            className="fixed inset-0 cursor-default"
+            style={{ zIndex: 999998, background: 'transparent', border: 'none', padding: 0 }}
             onClick={() => setIsOpen(false)}
-          ></div>
+            aria-label="Close language dropdown"
+          ></button>
           <div 
             className="fixed w-48 bg-white rounded-lg shadow-xl border border-gray-200 py-2 max-h-96 overflow-y-auto" 
             style={{ 
@@ -78,7 +80,7 @@ export default function LanguageSelector() {
               <button
                 key={lang.code}
                 onClick={() => {
-                  setLanguage(lang.code as 'es' | 'en')
+                  setLanguage(lang.code)
                   setIsOpen(false)
                 }}
                 className={`w-full flex items-center justify-between px-4 py-3 text-sm transition-colors ${

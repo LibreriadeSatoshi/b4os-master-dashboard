@@ -5,7 +5,7 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
 
 if (!supabaseUrl || !supabaseKey) {
-  if (typeof window !== 'undefined' || process.env.NODE_ENV === 'production') {
+  if (globalThis.window === undefined || process.env.NODE_ENV === 'production') {
     console.error('Missing Supabase environment variables')
   }
 }
@@ -177,7 +177,8 @@ export class SupabaseService {
   }
 
   // Search students by username
-  static async searchStudents(query: string): Promise<Student[]> {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  static async searchStudents(_query: string): Promise<Student[]> {
     // This method is kept for backward compatibility
     // Students are now loaded via dashboard API and filtered client-side
     return []
@@ -513,3 +514,4 @@ export class SupabaseService {
     }
   }
 }
+

@@ -6,13 +6,13 @@ import { SupabaseService } from '@/lib/supabase'
 import { useTranslation } from '@/hooks/useTranslation'
 
 interface GradesBreakdownProps {
-  username: string
-  isExpanded: boolean
-  selectedAssignment?: string  // Filter to show only this assignment
-  onOpenActions?: (username: string, assignmentName: string) => void
-  onOpenReview?: (username: string, assignmentName: string) => void
-  onDataUpdate?: () => void
-  refreshTrigger?: number  // Increment to force refresh of review data
+  readonly username: string
+  readonly isExpanded: boolean
+  readonly selectedAssignment?: string  // Filter to show only this assignment
+  readonly onOpenActions?: (username: string, assignmentName: string) => void
+  readonly onOpenReview?: (username: string, assignmentName: string) => void
+  readonly onDataUpdate?: () => void
+  readonly refreshTrigger?: number  // Increment to force refresh of review data
 }
 
 interface GradeBreakdown {
@@ -24,7 +24,7 @@ interface GradeBreakdown {
   fork_updated_at?: string | null
 }
 
-export default function GradesBreakdown({ username, isExpanded, selectedAssignment, onOpenActions, onOpenReview, refreshTrigger }: GradesBreakdownProps) {
+export default function GradesBreakdown({ username, isExpanded, selectedAssignment, onOpenActions, onOpenReview, onDataUpdate, refreshTrigger }: GradesBreakdownProps) {
   const { t } = useTranslation()
   const [grades, setGrades] = useState<GradeBreakdown[]>([])
   const [reviewData, setReviewData] = useState<{[key: string]: {reviewers: unknown[], comments: unknown[]}}>({})
@@ -35,6 +35,7 @@ export default function GradesBreakdown({ username, isExpanded, selectedAssignme
     if (isExpanded) {
       loadGradesBreakdown()
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isExpanded, username, selectedAssignment])
 
   // Reload review data when refreshTrigger changes (after reviewer assignment/update)
@@ -42,6 +43,7 @@ export default function GradesBreakdown({ username, isExpanded, selectedAssignme
     if (isExpanded && grades.length > 0 && refreshTrigger !== undefined && refreshTrigger > 0) {
       loadReviewDataForGrades(grades)
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshTrigger])
 
   const loadGradesBreakdown = async () => {
@@ -58,7 +60,7 @@ export default function GradesBreakdown({ username, isExpanded, selectedAssignme
         : acceptedAssignments
 
       // Sort by fork_created_at (oldest first) for chronological order
-      const sortedBreakdown = filteredBreakdown.sort((a, b) => {
+      const sortedBreakdown = filteredBreakdown.toSorted((a, b) => {
         if (!a.fork_created_at && !b.fork_created_at) return 0
         if (!a.fork_created_at) return 1
         if (!b.fork_created_at) return -1
@@ -66,6 +68,11 @@ export default function GradesBreakdown({ username, isExpanded, selectedAssignme
       })
 
       setGrades(sortedBreakdown)
+
+      // Notify parent component that data has been updated
+      if (onDataUpdate) {
+        onDataUpdate()
+      }
 
       // Load review data for these assignments
       await loadReviewDataForGrades(sortedBreakdown)
@@ -150,18 +157,6 @@ export default function GradesBreakdown({ username, isExpanded, selectedAssignme
     }
   }
 
-  const formatDate = (dateString: string | null | undefined) => {
-    if (!dateString) return null
-    const date = new Date(dateString)
-    return date.toLocaleDateString('es-ES', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    })
-  }
-
   const formatDateShort = (dateString: string | null | undefined) => {
     if (!dateString) return null
     const date = new Date(dateString)
@@ -191,23 +186,73 @@ export default function GradesBreakdown({ username, isExpanded, selectedAssignme
     }
   }
 
+  const renderDateInfo = (
+    forkCreatedAt: string | null | undefined,
+    forkUpdatedAt: string | null | undefined,
+    progress: number | null
+  ) => {
+    if (!forkCreatedAt) return null
+
+    const createdDate = new Date(forkCreatedAt)
+    const updatedDate = forkUpdatedAt ? new Date(forkUpdatedAt) : null
+    const isSameDay = updatedDate?.toDateString() === createdDate.toDateString()
+    const duration = calculateDurationDays(forkCreatedAt, forkUpdatedAt)
+    const hasProgress = progress !== null && progress > 0
+
+    if (hasProgress === false) {
+      return <>{formatDateShort(forkCreatedAt)}</>
+    }
+
+    if (isSameDay || !updatedDate) {
+      return (
+        <>
+          {formatDateShort(forkCreatedAt)}
+          <span className="text-gray-400"> · {duration} {duration > 1 ? t('grades_breakdown.duration.days') : t('grades_breakdown.duration.day')}</span>
+        </>
+      )
+    }
+
+    return (
+      <>
+        {formatDateShort(forkCreatedAt)}
+        <span className="text-gray-400"> → </span>
+        {formatDateShort(forkUpdatedAt)}
+        <span className="text-gray-400"> · {duration}{t('grades_breakdown.duration.day_short')}</span>
+      </>
+    )
+  }
+
+  const renderProgressLabel = (progress: number | null) => {
+    if (progress === null || progress === 0) {
+      return <span className="text-gray-500">{t('grades_breakdown.progress_labels.no_pow')}</span>
+    }
+
+    if (progress >= 80) {
+      return <span className="text-green-600 font-medium">{t('grades_breakdown.progress_labels.excellent')}</span>
+    }
+
+    if (progress >= 60) {
+      return <span className="text-yellow-600 font-medium">{t('grades_breakdown.progress_labels.good')}</span>
+    }
+
+    return <span className="text-red-600 font-medium">{t('grades_breakdown.progress_labels.needs_improvement')}</span>
+  }
+
   if (!isExpanded) return null
 
-  return (
-    <div className="bg-gray-50 border-t border-gray-200 p-4">
-      <div className="flex items-center justify-between mb-4">
-        <h4 className="font-semibold text-gray-900">{t('grades_breakdown.title')}</h4>
-        <div className="text-sm text-gray-500">
-          {t('grades_breakdown.assignments_count').replace('{count}', grades.length.toString())}
-        </div>
-      </div>
-
-      {isLoading ? (
+  // Determine what to render based on loading/error/empty state
+  const renderContent = () => {
+    if (isLoading) {
+      return (
         <div className="text-center py-8">
           <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-orange-500 mx-auto mb-2"></div>
           <p className="text-gray-600 text-sm">{t('grades_breakdown.loading_grades')}</p>
         </div>
-      ) : error ? (
+      )
+    }
+
+    if (error) {
+      return (
         <div className="text-center py-8">
           <XCircle className="w-8 h-8 text-red-500 mx-auto mb-2" />
           <p className="text-red-600 text-sm mb-3">{error}</p>
@@ -218,154 +263,140 @@ export default function GradesBreakdown({ username, isExpanded, selectedAssignme
             {t('grades_breakdown.retry_button')}
           </button>
         </div>
-      ) : grades.length === 0 ? (
+      )
+    }
+
+    if (grades.length === 0) {
+      return (
         <div className="text-center py-8">
           <Clock className="w-8 h-8 text-gray-400 mx-auto mb-2" />
           <p className="text-gray-600 text-sm">{t('grades_breakdown.no_grades')}</p>
         </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {grades.map((grade) => {
-            const reviewStatus = getReviewStatus(grade.assignment_name)
-            const reviewCounts = getReviewCounts(grade.assignment_name)
-            
-            return (
-              <div key={grade.assignment_name} className="grades-breakdown-card bg-white rounded-lg p-2 border border-gray-200 hover:shadow-sm transition-shadow">
-                {/* Header with status icon and title */}
-                <div className="flex items-start gap-2 mb-1.5">
-                  <div className="flex-shrink-0 mt-0.5">
-                    {getStatusIcon(grade.progress)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h5 className="font-medium text-gray-900 text-sm truncate leading-tight">
-                      {grade.assignment_name}
-                    </h5>
-                    {grade.fork_created_at && (() => {
-                      const createdDate = new Date(grade.fork_created_at)
-                      const updatedDate = grade.fork_updated_at ? new Date(grade.fork_updated_at) : null
-                      const isSameDay = updatedDate && createdDate.toDateString() === updatedDate.toDateString()
-                      const duration = calculateDurationDays(grade.fork_created_at, grade.fork_updated_at)
-                      const hasprogress = grade.progress !== null && grade.progress > 0
+      )
+    }
 
-                      return (
-                        <div className="flex items-center gap-1.5 mt-1 text-[11px] text-gray-600 leading-tight">
-                          <Calendar className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                          <span className="whitespace-nowrap">
-                            {!hasprogress ? (
-                              // Sin progreso: solo mostrar fecha de inicio
-                              <>{formatDateShort(grade.fork_created_at)}</>
-                            ) : isSameDay || !updatedDate ? (
-                              // Mismo día con progreso
-                              <>
-                                {formatDateShort(grade.fork_created_at)}
-                                <span className="text-gray-400"> · {duration} {duration > 1 ? t('grades_breakdown.duration.days') : t('grades_breakdown.duration.day')}</span>
-                              </>
-                            ) : (
-                              // Días diferentes con progreso
-                              <>
-                                {formatDateShort(grade.fork_created_at)}
-                                <span className="text-gray-400"> → </span>
-                                {formatDateShort(grade.fork_updated_at)}
-                                <span className="text-gray-400"> · {duration}{t('grades_breakdown.duration.day_short')}</span>
-                              </>
-                            )}
-                          </span>
-                        </div>
-                      )
-                    })()}
+    return (
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        {grades.map((grade) => {
+          const reviewStatus = getReviewStatus(grade.assignment_name)
+          const reviewCounts = getReviewCounts(grade.assignment_name)
+          
+          return (
+            <div key={grade.assignment_name} className="grades-breakdown-card bg-white rounded-lg p-2 border border-gray-200 hover:shadow-sm transition-shadow">
+              {/* Header with status icon and title */}
+              <div className="flex items-start gap-2 mb-1.5">
+                <div className="shrink-0 mt-0.5">
+                  {getStatusIcon(grade.progress)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h5 className="font-medium text-gray-900 text-sm truncate leading-tight">
+                    {grade.assignment_name}
+                  </h5>
+                  {grade.fork_created_at && (
+                    <div className="flex items-center gap-1.5 mt-1 text-[11px] text-gray-600 leading-tight">
+                      <Calendar className="w-3 h-3 text-gray-400 shrink-0" />
+                      <span className="whitespace-nowrap">
+                        {renderDateInfo(grade.fork_created_at, grade.fork_updated_at, grade.progress)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+                <div className="buttons-container flex gap-1 shrink-0">
+                  {onOpenActions && (
+                    <button
+                      onClick={() => onOpenActions(username, grade.assignment_name)}
+                      className="w-5 h-5 bg-gray-50 hover:bg-orange-50 border border-gray-200 hover:border-orange-200 rounded flex items-center justify-center cursor-pointer transition-colors group"
+                      title={t('grades_breakdown.actions.view_github_actions')}
+                    >
+                      <WorkflowIcon className="w-2.5 h-2.5 text-gray-500 group-hover:text-orange-600" />
+                    </button>
+                  )}
+                  {onOpenReview && (
+                    <button
+                      onClick={() => onOpenReview(username, grade.assignment_name)}
+                      className="w-5 h-5 bg-gray-50 hover:bg-blue-50 border border-gray-200 hover:border-blue-200 rounded flex items-center justify-center cursor-pointer transition-colors group"
+                      title={t('grades_breakdown.actions.review_assignment')}
+                    >
+                      <UserCheck className="w-2.5 h-2.5 text-gray-500 group-hover:text-blue-600" />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Score and progress */}
+              <div className="flex items-center gap-2 mb-1">
+                <div className={`text-left ${getStatusColor(grade.progress)}`}>
+                  <div className="text-base font-bold leading-tight">
+                    {grade.progress || 0}%
                   </div>
-                  <div className="buttons-container flex gap-1 flex-shrink-0">
-                    {onOpenActions && (
-                      <button
-                        onClick={() => onOpenActions(username, grade.assignment_name)}
-                        className="w-5 h-5 bg-gray-50 hover:bg-orange-50 border border-gray-200 hover:border-orange-200 rounded flex items-center justify-center cursor-pointer transition-colors group"
-                        title={t('grades_breakdown.actions.view_github_actions')}
-                      >
-                        <WorkflowIcon className="w-2.5 h-2.5 text-gray-500 group-hover:text-orange-600" />
-                      </button>
-                    )}
-                    {onOpenReview && (
-                      <button
-                        onClick={() => onOpenReview(username, grade.assignment_name)}
-                        className="w-5 h-5 bg-gray-50 hover:bg-blue-50 border border-gray-200 hover:border-blue-200 rounded flex items-center justify-center cursor-pointer transition-colors group"
-                        title={t('grades_breakdown.actions.review_assignment')}
-                      >
-                        <UserCheck className="w-2.5 h-2.5 text-gray-500 group-hover:text-blue-600" />
-                      </button>
-                    )}
+                  <div className="text-[10px] text-gray-500 leading-tight">
+                    {grade.points_awarded || 0}/{grade.points_available || 0}
                   </div>
                 </div>
-
-                {/* Score and progress */}
-                <div className="flex items-center gap-2 mb-1">
-                  <div className={`text-left ${getStatusColor(grade.progress)}`}>
-                    <div className="text-base font-bold leading-tight">
-                      {grade.progress || 0}%
-                    </div>
-                    <div className="text-[10px] text-gray-500 leading-tight">
-                      {grade.points_awarded || 0}/{grade.points_available || 0}
-                    </div>
-                  </div>
-                  <div className="flex-1">
-                    <div className="w-full bg-gray-200 rounded-full h-1.5">
-                      <div
-                        className={`h-1.5 rounded-full transition-all duration-300 ${getprogressColor(grade.progress)}`}
-                        style={{ width: `${Math.min(grade.progress || 0, 100)}%` }}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Status and Review Info */}
-                <div className="flex items-center justify-between text-[10px]">
-                  <div className="text-gray-600">
-                    {grade.progress === null || grade.progress === 0 ? (
-                      <span className="text-gray-500">{t('grades_breakdown.progress_labels.no_pow')}</span>
-                    ) : grade.progress >= 80 ? (
-                      <span className="text-green-600 font-medium">{t('grades_breakdown.progress_labels.excellent')}</span>
-                    ) : grade.progress >= 60 ? (
-                      <span className="text-yellow-600 font-medium">{t('grades_breakdown.progress_labels.good')}</span>
-                    ) : (
-                      <span className="text-red-600 font-medium">{t('grades_breakdown.progress_labels.needs_improvement')}</span>
-                    )}
-                  </div>
-
-                  {/* Review Status */}
-                  <div className="flex items-center gap-1.5">
-                    <span className={`font-medium ${reviewStatus.color}`}>
-                      {reviewStatus.text}
-                    </span>
-                    {(reviewCounts.reviewers > 0 || reviewCounts.comments > 0) && (
-                      <div className="flex items-center gap-1.5">
-                        {reviewCounts.reviewers > 0 && (
-                          <button
-                            onClick={() => onOpenReview?.(username, grade.assignment_name)}
-                            className="flex items-center gap-0.5 text-green-600 hover:bg-green-50 px-1 py-0.5 rounded transition-colors cursor-pointer"
-                            title={t('grades_breakdown.actions.view_reviewers_comments')}
-                          >
-                            <UserCheck className="w-3 h-3" />
-                            <span className="font-medium">{reviewCounts.reviewers}</span>
-                          </button>
-                        )}
-                        {reviewCounts.comments > 0 && (
-                          <button
-                            onClick={() => onOpenReview?.(username, grade.assignment_name)}
-                            className="flex items-center gap-0.5 text-gray-600 hover:bg-blue-50 hover:text-blue-600 px-1 py-0.5 rounded transition-colors cursor-pointer"
-                            title={t('grades_breakdown.actions.view_review_comments')}
-                          >
-                            <MessageSquare className="w-3 h-3" />
-                            <span className="font-medium">{reviewCounts.comments}</span>
-                          </button>
-                        )}
-                      </div>
-                    )}
+                <div className="flex-1">
+                  <div className="w-full bg-gray-200 rounded-full h-1.5">
+                    <div
+                      className={`h-1.5 rounded-full transition-all duration-300 ${getprogressColor(grade.progress)}`}
+                      style={{ width: `${Math.min(grade.progress || 0, 100)}%` }}
+                    />
                   </div>
                 </div>
               </div>
-            )
-          })}
+
+              {/* Status and Review Info */}
+              <div className="flex items-center justify-between text-[10px]">
+                <div className="text-gray-600">
+                  {renderProgressLabel(grade.progress)}
+                </div>
+
+                {/* Review Status */}
+                <div className="flex items-center gap-1.5">
+                  <span className={`font-medium ${reviewStatus.color}`}>
+                    {reviewStatus.text}
+                  </span>
+                  {(reviewCounts.reviewers > 0 || reviewCounts.comments > 0) && (
+                    <div className="flex items-center gap-1.5">
+                      {reviewCounts.reviewers > 0 && (
+                        <button
+                          onClick={() => onOpenReview?.(username, grade.assignment_name)}
+                          className="flex items-center gap-0.5 text-green-600 hover:bg-green-50 px-1 py-0.5 rounded transition-colors cursor-pointer"
+                          title={t('grades_breakdown.actions.view_reviewers_comments')}
+                        >
+                          <UserCheck className="w-3 h-3" />
+                          <span className="font-medium">{reviewCounts.reviewers}</span>
+                        </button>
+                      )}
+                      {reviewCounts.comments > 0 && (
+                        <button
+                          onClick={() => onOpenReview?.(username, grade.assignment_name)}
+                          className="flex items-center gap-0.5 text-gray-600 hover:bg-blue-50 hover:text-blue-600 px-1 py-0.5 rounded transition-colors cursor-pointer"
+                          title={t('grades_breakdown.actions.view_review_comments')}
+                        >
+                          <MessageSquare className="w-3 h-3" />
+                          <span className="font-medium">{reviewCounts.comments}</span>
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    )
+  }
+
+  return (
+    <div className="bg-gray-50 border-t border-gray-200 p-4">
+      <div className="flex items-center justify-between mb-4">
+        <h4 className="font-semibold text-gray-900">{t('grades_breakdown.title')}</h4>
+        <div className="text-sm text-gray-500">
+          {t('grades_breakdown.assignments_count').replace('{count}', grades.length.toString())}
         </div>
-      )}
+      </div>
+
+      {renderContent()}
     </div>
   )
 }

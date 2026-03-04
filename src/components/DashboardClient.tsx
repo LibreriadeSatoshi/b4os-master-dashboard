@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useCallback, useEffect, useMemo } from "react"
+import { useState, useCallback, useEffect, useMemo, ReactNode } from "react"
+import Image from "next/image"
 import type { DashboardData } from "@/lib/dashboard-data"
 import type { Assignment, StudentReviewer } from "@/lib/supabase"
 import DashboardFilters, { FilterState } from "@/components/DashboardFilters"
@@ -14,8 +15,6 @@ import {
   BookOpenIcon,
   TrophyIcon,
   TrendingUpIcon,
-  RefreshCwIcon,
-  GithubIcon,
   ChevronDown,
   ChevronUp,
   Play,
@@ -24,10 +23,387 @@ import {
   Download,
 } from "lucide-react"
 
+// Custom GitHub icon component (lucide-react GitHub is deprecated)
+function GitHubIcon({ className }: { readonly className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4" />
+      <path d="M9 18c-4.51 2-5-2-7-2" />
+    </svg>
+  )
+}
+
+// Review status type
+type ReviewStatus = {
+  hasReviewer: boolean
+  status: 'pending' | 'in_progress' | 'completed' | null
+  reviewerCount: number
+  latestReviewer: string | null
+  latestAssignment: string | null
+  averageQualityScore: number | null
+  qualityScoreCount: number
+}
+
+// Process review statuses - extracted to reduce cognitive complexity
+function processReviewStatuses(
+  students: readonly { github_username: string }[],
+  reviewersGrouped: Map<string, StudentReviewer[]>
+): Map<string, ReviewStatus> {
+  const reviewStatusMap = new Map<string, ReviewStatus>()
+
+  for (const student of students) {
+    const reviewers = reviewersGrouped.get(student.github_username) || []
+
+    if (reviewers.length > 0) {
+      // Sort reviewers by assigned_at descending and get the latest
+      const sortedReviewers = [...reviewers].sort((a, b) =>
+        new Date(b.assigned_at).getTime() - new Date(a.assigned_at).getTime()
+      )
+      const latestReviewer = sortedReviewers[0]
+
+      const scoresWithQuality = reviewers.filter(r => r.code_quality_score !== null)
+      const averageQualityScore = scoresWithQuality.length > 0
+        ? scoresWithQuality.reduce((sum, r) => sum + (r.code_quality_score || 0), 0) / scoresWithQuality.length
+        : null
+
+      reviewStatusMap.set(student.github_username, {
+        hasReviewer: true,
+        status: latestReviewer.status,
+        reviewerCount: reviewers.length,
+        latestReviewer: latestReviewer.reviewer_username,
+        latestAssignment: latestReviewer.assignment_name,
+        averageQualityScore: averageQualityScore ? Math.round(averageQualityScore) : null,
+        qualityScoreCount: scoresWithQuality.length
+      })
+    } else {
+      reviewStatusMap.set(student.github_username, {
+        hasReviewer: false,
+        status: null,
+        reviewerCount: 0,
+        latestReviewer: null,
+        latestAssignment: null,
+        averageQualityScore: null,
+        qualityScoreCount: 0
+      })
+    }
+  }
+
+  return reviewStatusMap
+}
+
+// Filter and sort students - extracted to reduce cognitive complexity
+function applyFiltersAndSort<T extends { github_username: string; progress: number; total_score: number }>(
+  students: readonly T[],
+  filters: FilterState,
+  sortConfig: { key: string | null; direction: "asc" | "desc" },
+  allGrades: readonly { github_username: string; assignment_name: string }[],
+  totalResolutionTimeByStudent: Map<string, number>,
+  assignmentsCountByStudent: Map<string, number>,
+  reviewStatuses: Map<string, ReviewStatus>
+): T[] {
+  let filtered = [...students]
+
+  // Filter by search term
+  if (filters.searchTerm) {
+    filtered = filtered.filter((student) =>
+      student.github_username.toLowerCase().includes(filters.searchTerm.toLowerCase())
+    )
+  }
+
+  // Filter by assignment
+  if (filters.selectedAssignment && filters.selectedAssignment !== 'all') {
+    const studentsWithAssignment = new Set(
+      allGrades
+        .filter(g => g.assignment_name === filters.selectedAssignment)
+        .map(g => g.github_username)
+    )
+    filtered = filtered.filter(student => studentsWithAssignment.has(student.github_username))
+  }
+
+  // Filter by completion status
+  if (filters.showOnly !== "all") {
+    filtered = filtered.filter((student) => {
+      switch (filters.showOnly) {
+        case "completed": return student.progress === 100
+        case "partial": return student.progress > 0 && student.progress < 100
+        case "incomplete": return student.progress === 0
+        default: return true
+      }
+    })
+  }
+
+  // Filter by resolution time
+  filtered = filtered.filter((student) => {
+    const totalDays = totalResolutionTimeByStudent.get(student.github_username)
+    if (totalDays === undefined) return true
+    return (
+      totalDays >= filters.timeRange.min &&
+      totalDays <= filters.timeRange.max
+    )
+  })
+
+  // Filter by progress range
+  filtered = filtered.filter(
+    (student) =>
+      student.progress >= filters.progressRange.min &&
+      student.progress <= filters.progressRange.max
+  )
+
+  // Sort
+  const sortBy = sortConfig.key || filters.sortBy
+  const sortOrder = sortConfig.direction || filters.sortOrder
+
+  filtered.sort((a, b) => {
+    let comparison = 0
+
+    switch (sortBy) {
+      case "username":
+        comparison = a.github_username.localeCompare(b.github_username)
+        break
+      case "resolution_time": {
+        const timeA = totalResolutionTimeByStudent.get(a.github_username) ?? 999999
+        const timeB = totalResolutionTimeByStudent.get(b.github_username) ?? 999999
+        comparison = timeA - timeB
+        break
+      }
+      case "progress":
+        comparison = a.progress - b.progress
+        break
+      case "assignments":
+        comparison = (assignmentsCountByStudent.get(a.github_username) || 0) - (assignmentsCountByStudent.get(b.github_username) || 0)
+        break
+      case "total_score":
+        comparison = a.total_score - b.total_score
+        break
+      case "quality_score": {
+        const reviewStatusA = reviewStatuses.get(a.github_username)
+        const reviewStatusB = reviewStatuses.get(b.github_username)
+        const scoreA = reviewStatusA?.averageQualityScore ?? 0
+        const scoreB = reviewStatusB?.averageQualityScore ?? 0
+        comparison = scoreA - scoreB
+        break
+      }
+      case "review_status": {
+        const statusA = reviewStatuses.get(a.github_username)
+        const statusB = reviewStatuses.get(b.github_username)
+        const statusPriority = { completed: 3, in_progress: 2, pending: 1 }
+        const priorityA = statusA?.hasReviewer ? (statusPriority[statusA.status || 'pending'] || 0) : -1
+        const priorityB = statusB?.hasReviewer ? (statusPriority[statusB.status || 'pending'] || 0) : -1
+        const prioritiesEqual = priorityA === priorityB
+        if (prioritiesEqual) {
+          comparison = (statusA?.reviewerCount ?? 0) - (statusB?.reviewerCount ?? 0)
+        } else {
+          comparison = priorityA - priorityB
+        }
+        break
+      }
+      default:
+        comparison = a.github_username.localeCompare(b.github_username)
+    }
+
+    return sortOrder === "asc" ? comparison : -comparison
+  })
+
+  return filtered
+}
+
+// Dashboard Stats Component - extracted to reduce complexity
+type StatsData = {
+  totalStudents: number
+  totalAssignments: number
+  totalGrades: number
+  avgScore: number
+  completionRate: number
+}
+
+function DashboardStats({ stats, t }: { readonly stats: StatsData; readonly t: (key: string) => string }) {
+  return (
+    <section className="container mx-auto px-6 py-16">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="bg-white/5 backdrop-blur-sm rounded-xl p-6 text-center border border-white/10 hover:border-orange-500/50 transition-colors">
+          <div className="flex justify-center mb-3">
+            <UsersIcon className="w-8 h-8 text-orange-400" />
+          </div>
+          <div className="text-3xl font-bold text-white mb-2">{stats.totalStudents || 0}</div>
+          <div className="text-gray-300">{t('dashboard.stats.students')}</div>
+        </div>
+        <div className="bg-white/5 backdrop-blur-sm rounded-xl p-6 text-center border border-white/10 hover:border-orange-500/50 transition-colors">
+          <div className="flex justify-center mb-3">
+            <BookOpenIcon className="w-8 h-8 text-orange-400" />
+          </div>
+          <div className="text-3xl font-bold text-white mb-2">{stats.totalAssignments || 0}</div>
+          <div className="text-gray-300">{t('dashboard.stats.assignments')}</div>
+        </div>
+        <div className="bg-white/5 backdrop-blur-sm rounded-xl p-6 text-center border border-white/10 hover:border-orange-500/50 transition-colors">
+          <div className="flex justify-center mb-3">
+            <TrophyIcon className="w-8 h-8 text-orange-400" />
+          </div>
+          <div className="text-3xl font-bold text-white mb-2">{stats.avgScore || 0}%</div>
+          <div className="text-gray-300">{t('dashboard.stats.average_score')}</div>
+        </div>
+        <div className="bg-white/5 backdrop-blur-sm rounded-xl p-6 text-center border border-white/10 hover:border-orange-500/50 transition-colors">
+          <div className="flex justify-center mb-3">
+            <TrendingUpIcon className="w-8 h-8 text-orange-400" />
+          </div>
+          <div className="text-3xl font-bold text-white mb-2">{stats.completionRate || 0}%</div>
+          <div className="text-gray-300">{t('dashboard.stats.completion_rate')}</div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+// Helper function to get progress color classes
+function getProgressColorClass(progress: number): string {
+  if (progress >= 80) return "bg-green-500"
+  if (progress >= 60) return "bg-yellow-500"
+  if (progress >= 40) return "bg-orange-500"
+  return "bg-red-500"
+}
+
+function getProgressBadgeClass(progress: number): string {
+  if (progress >= 80) return "bg-green-100 text-green-800"
+  if (progress >= 60) return "bg-yellow-100 text-yellow-800"
+  if (progress >= 40) return "bg-orange-100 text-orange-800"
+  return "bg-red-100 text-red-800"
+}
+
+// Helper function to get quality score color
+function getQualityColorClass(score: number): string {
+  if (score >= 8) return "bg-green-100 text-green-800"
+  if (score >= 6) return "bg-yellow-100 text-yellow-800"
+  return "bg-red-100 text-red-800"
+}
+
+// Helper function to get status colors
+function getStatusColorClass(status: string): string {
+  const statusColors: Record<string, string> = {
+    pending: "bg-yellow-100 text-yellow-800",
+    in_progress: "bg-blue-100 text-blue-800",
+    completed: "bg-green-100 text-green-800"
+  }
+  return statusColors[status] || statusColors.pending
+}
+
+// Helper function to get status icon
+function getStatusIcon(status: string): ReactNode {
+  const statusIcons: Record<string, ReactNode> = {
+    pending: <Circle className="w-3 h-3" />,
+    in_progress: <Play className="w-3 h-3" />,
+    completed: <CheckCircle2 className="w-3 h-3" />
+  }
+  return statusIcons[status] || statusIcons.pending
+}
+
+// Helper to get avatar colors
+const AVATAR_COLORS = [
+  "bg-pink-500",
+  "bg-blue-500",
+  "bg-teal-500",
+  "bg-purple-500",
+  "bg-indigo-500",
+  "bg-cyan-500",
+  "bg-emerald-500",
+  "bg-rose-500",
+  "bg-amber-500",
+  "bg-lime-500",
+  "bg-orange-500",
+  "bg-violet-500",
+]
+
+function getAvatarColor(index: number): string {
+  return AVATAR_COLORS[index % AVATAR_COLORS.length]
+}
+
+// Render resolution time for a student
+function renderResolutionTime(
+  totalDays: number | undefined
+): ReactNode {
+  if (totalDays === undefined || totalDays === 0) {
+    return <span className="text-gray-400">N/A</span>
+  }
+  return (
+    <span className="text-orange-600 font-semibold">
+      {totalDays}d
+    </span>
+  )
+}
+
+// Render quality score for a student
+function renderQualityScore(
+  reviewStatus: ReviewStatus | undefined,
+  t: (key: string) => string
+): ReactNode {
+  if (!reviewStatus?.averageQualityScore) {
+    return (
+      <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs font-medium">
+        0/10
+      </span>
+    )
+  }
+
+  const score = reviewStatus.averageQualityScore
+
+  return (
+    <div className="flex flex-col items-center gap-1">
+      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getQualityColorClass(score)}`}>
+        {score}/10
+      </span>
+      {reviewStatus.qualityScoreCount > 1 && (
+        <span className="text-xs text-gray-500">
+          ({reviewStatus.qualityScoreCount} {t('leaderboard.evaluations')})
+        </span>
+      )}
+    </div>
+  )
+}
+
+// Render review status for a student
+function renderReviewStatus(
+  reviewStatus: ReviewStatus | undefined,
+  t: (key: string) => string
+): ReactNode {
+  if (!reviewStatus?.hasReviewer) {
+    return (
+      <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs font-medium">
+        {t('leaderboard.status.no_reviewer')}
+      </span>
+    )
+  }
+
+  const currentStatus = reviewStatus.status || 'pending'
+
+  return (
+    <div className="flex flex-col items-center gap-1">
+      <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium truncate max-w-24">
+        {reviewStatus.latestReviewer}
+      </span>
+      <span className={`px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${getStatusColorClass(currentStatus)}`}>
+        {getStatusIcon(currentStatus)}
+        <span className="hidden xl:inline">{t(`review_system.status.${currentStatus}`)}</span>
+      </span>
+      {reviewStatus.reviewerCount > 1 && (
+        <span className="text-xs text-gray-500">
+          +{reviewStatus.reviewerCount - 1} {t('leaderboard.more_reviewers')}
+        </span>
+      )}
+    </div>
+  )
+}
+
 interface DashboardClientProps {
-  initialData: DashboardData
-  assignments: Assignment[]
-  canExportReport?: boolean
+  readonly initialData: DashboardData
+  readonly assignments: Assignment[]
+  readonly canExportReport?: boolean
 }
 
 export default function DashboardClient({ initialData, assignments, canExportReport = false }: DashboardClientProps) {
@@ -40,7 +416,7 @@ export default function DashboardClient({ initialData, assignments, canExportRep
     avgScore: 0,
     completionRate: 0
   })
-  const [allGrades, setAllGrades] = useState(initialData.allGrades || [])
+  const [allGrades] = useState(initialData.allGrades || [])
   const [filters, setFilters] = useState<FilterState | null>(null)
   const [filteredStudents, setFilteredStudents] = useState(initialData.leaderboard || [])
   const [expandedStudents, setExpandedStudents] = useState<Set<string>>(new Set())
@@ -66,9 +442,10 @@ export default function DashboardClient({ initialData, assignments, canExportRep
   useEffect(() => {
     const reviewersMap = new Map<string, StudentReviewer[]>()
     Object.entries(initialData.reviewersGrouped || {}).forEach(([username, reviewers]) => {
-      reviewersMap.set(username, reviewers as StudentReviewer[])
+      reviewersMap.set(username, reviewers)
     })
-    processReviewStatuses(leaderboard, reviewersMap)
+    const reviewStatusesResult = processReviewStatuses(leaderboard, reviewersMap)
+    setReviewStatuses(reviewStatusesResult)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -111,164 +488,26 @@ export default function DashboardClient({ initialData, assignments, canExportRep
     return timeMap
   }, [allGrades])
 
-  const processReviewStatuses = (
-    students: typeof leaderboard,
-    reviewersGrouped: Map<string, StudentReviewer[]>
-  ) => {
-    const reviewStatusMap = new Map()
-
-    for (const student of students) {
-      const reviewers = reviewersGrouped.get(student.github_username) || []
-
-      if (reviewers.length > 0) {
-        const latestReviewer = reviewers.sort((a, b) =>
-          new Date(b.assigned_at).getTime() - new Date(a.assigned_at).getTime()
-        )[0]
-
-        const scoresWithQuality = reviewers.filter(r => r.code_quality_score !== null)
-        const averageQualityScore = scoresWithQuality.length > 0
-          ? scoresWithQuality.reduce((sum, r) => sum + (r.code_quality_score || 0), 0) / scoresWithQuality.length
-          : null
-
-        reviewStatusMap.set(student.github_username, {
-          hasReviewer: true,
-          status: latestReviewer.status,
-          reviewerCount: reviewers.length,
-          latestReviewer: latestReviewer.reviewer_username,
-          latestAssignment: latestReviewer.assignment_name,
-          averageQualityScore: averageQualityScore ? Math.round(averageQualityScore) : null,
-          qualityScoreCount: scoresWithQuality.length
-        })
-      } else {
-        reviewStatusMap.set(student.github_username, {
-          hasReviewer: false,
-          status: null,
-          reviewerCount: 0,
-          latestReviewer: null,
-          latestAssignment: null,
-          averageQualityScore: null,
-          qualityScoreCount: 0
-        })
-      }
-    }
-
-    setReviewStatuses(reviewStatusMap)
-  }
-
-  const handleSort = (key: string) => {
+  // Sort handler - extracted to reduce cognitive complexity
+  const handleSort = useCallback((key: string) => {
     setSortConfig((prevConfig) => ({
       key,
       direction: prevConfig.key === key && prevConfig.direction === "asc" ? "desc" : "asc",
     }))
-  }
-
-  const applyFilters = (
-    students: typeof leaderboard,
-    filters: FilterState
-  ): typeof leaderboard => {
-    let filtered = [...students]
-
-    if (filters.searchTerm) {
-      filtered = filtered.filter((student) =>
-        student.github_username.toLowerCase().includes(filters.searchTerm.toLowerCase())
-      )
-    }
-
-    if (filters.selectedAssignment && filters.selectedAssignment !== 'all') {
-      const studentsWithAssignment = new Set(
-        allGrades
-          .filter(g => g.assignment_name === filters.selectedAssignment)
-          .map(g => g.github_username)
-      )
-      filtered = filtered.filter(student => studentsWithAssignment.has(student.github_username))
-    }
-
-    if (filters.showOnly !== "all") {
-      filtered = filtered.filter((student) => {
-        switch (filters.showOnly) {
-          case "completed": return student.progress === 100
-          case "partial": return student.progress > 0 && student.progress < 100
-          case "incomplete": return student.progress === 0
-          default: return true
-        }
-      })
-    }
-
-    filtered = filtered.filter((student) => {
-      const totalDays = totalResolutionTimeByStudent.get(student.github_username)
-      if (totalDays === undefined) return true
-      return (
-        totalDays >= filters.timeRange.min &&
-        totalDays <= filters.timeRange.max
-      )
-    })
-
-    filtered = filtered.filter(
-      (student) =>
-        student.progress >= filters.progressRange.min &&
-        student.progress <= filters.progressRange.max
-    )
-
-    const sortBy = sortConfig.key || filters.sortBy
-    const sortOrder = sortConfig.direction || filters.sortOrder
-
-    filtered.sort((a, b) => {
-      let comparison = 0
-
-      switch (sortBy) {
-        case "username": comparison = a.github_username.localeCompare(b.github_username); break
-        case "resolution_time":
-          const timeA = totalResolutionTimeByStudent.get(a.github_username) ?? 999999
-          const timeB = totalResolutionTimeByStudent.get(b.github_username) ?? 999999
-          comparison = timeA - timeB
-          break
-        case "progress": comparison = a.progress - b.progress; break
-        case "assignments":
-          comparison = (assignmentsCountByStudent.get(a.github_username) || 0) - (assignmentsCountByStudent.get(b.github_username) || 0)
-          break
-        case "total_score": comparison = a.total_score - b.total_score; break
-        case "quality_score":
-          const reviewStatusA = reviewStatuses.get(a.github_username)
-          const reviewStatusB = reviewStatuses.get(b.github_username)
-          const scoreA = reviewStatusA?.averageQualityScore ?? 0
-          const scoreB = reviewStatusB?.averageQualityScore ?? 0
-          comparison = scoreA - scoreB
-          break
-        case "review_status":
-          const statusA = reviewStatuses.get(a.github_username)
-          const statusB = reviewStatuses.get(b.github_username)
-          // Priority: completed > in_progress > pending > no reviewer
-          const statusPriority = { completed: 3, in_progress: 2, pending: 1 }
-          const priorityA = statusA?.hasReviewer ? (statusPriority[statusA.status || 'pending'] || 0) : -1
-          const priorityB = statusB?.hasReviewer ? (statusPriority[statusB.status || 'pending'] || 0) : -1
-          if (priorityA !== priorityB) {
-            comparison = priorityA - priorityB
-          } else {
-            // If same status, sort by reviewer count
-            comparison = (statusA?.reviewerCount ?? 0) - (statusB?.reviewerCount ?? 0)
-          }
-          break
-        default: comparison = a.github_username.localeCompare(b.github_username)
-      }
-
-      return sortOrder === "asc" ? comparison : -comparison
-    })
-
-    return filtered
-  }
+  }, [])
 
   const handleFiltersChange = useCallback((newFilters: FilterState) => {
     setFilters(newFilters)
     if (leaderboard.length > 0) {
-      const filtered = applyFilters(leaderboard, newFilters)
+      const filtered = applyFiltersAndSort(leaderboard, newFilters, sortConfig, allGrades, totalResolutionTimeByStudent, assignmentsCountByStudent, reviewStatuses)
       setFilteredStudents(filtered)
     }
-  }, [leaderboard, allGrades])
+  }, [leaderboard, allGrades, sortConfig, totalResolutionTimeByStudent, assignmentsCountByStudent, reviewStatuses])
 
   useEffect(() => {
     if (leaderboard.length > 0) {
       if (filters) {
-        const filtered = applyFilters(leaderboard, filters)
+        const filtered = applyFiltersAndSort(leaderboard, filters, sortConfig, allGrades, totalResolutionTimeByStudent, assignmentsCountByStudent, reviewStatuses)
         setFilteredStudents(filtered)
       } else {
         const sorted = [...leaderboard].sort((a, b) =>
@@ -277,40 +516,41 @@ export default function DashboardClient({ initialData, assignments, canExportRep
         setFilteredStudents(sorted)
       }
     }
-  }, [leaderboard, filters, sortConfig, allGrades])
+  }, [leaderboard, filters, sortConfig, allGrades, totalResolutionTimeByStudent, assignmentsCountByStudent, reviewStatuses])
 
-  const openActionsModal = (username: string, assignmentName: string) => {
+  // Modal handlers - extracted to reduce cognitive complexity
+  const openActionsModal = useCallback((username: string, assignmentName: string) => {
     setSelectedStudent({ username, assignmentName })
     setModalOpen(true)
-  }
+  }, [])
 
-  const closeActionsModal = () => {
+  const closeActionsModal = useCallback(() => {
     setModalOpen(false)
     setSelectedStudent(null)
-  }
+  }, [])
 
-  const openAssignmentSelector = (username: string) => {
+  const openAssignmentSelector = useCallback((username: string) => {
     setSelectedStudentForAssignment(username)
     setShowAssignmentSelector(true)
-  }
+  }, [])
 
-  const openReviewModal = (username: string, assignmentName: string) => {
+  const openReviewModal = useCallback((username: string, assignmentName: string) => {
     setSelectedStudentForReview({ username, assignmentName })
     setReviewModalOpen(true)
     setShowAssignmentSelector(false)
-  }
+  }, [])
 
-  const closeReviewModal = () => {
+  const closeReviewModal = useCallback(() => {
     setReviewModalOpen(false)
     setSelectedStudentForReview(null)
-  }
+  }, [])
 
-  const closeAssignmentSelector = () => {
+  const closeAssignmentSelector = useCallback(() => {
     setShowAssignmentSelector(false)
     setSelectedStudentForAssignment(null)
-  }
+  }, [])
 
-  const toggleStudentGrades = (username: string) => {
+  const toggleStudentGrades = useCallback((username: string) => {
     setExpandedStudents((prev) => {
       const newSet = new Set(prev)
       if (newSet.has(username)) {
@@ -320,7 +560,7 @@ export default function DashboardClient({ initialData, assignments, canExportRep
       }
       return newSet
     })
-  }
+  }, [])
 
   const handleReviewDataUpdate = useCallback(async () => {
     // Refresh data from server
@@ -330,7 +570,8 @@ export default function DashboardClient({ initialData, assignments, canExportRep
         const data = await response.json()
         setLeaderboard(data.leaderboard || [])
         setStats(data.stats || initialData.stats)
-        processReviewStatuses(data.leaderboard || [], new Map(Object.entries(data.reviewersGrouped || {})))
+        const reviewStatusesResult = processReviewStatuses(data.leaderboard || [], new Map(Object.entries(data.reviewersGrouped || {})))
+        setReviewStatuses(reviewStatusesResult)
       }
       // Trigger refresh for GradesBreakdown components
       setRefreshTrigger(prev => prev + 1)
@@ -361,41 +602,15 @@ export default function DashboardClient({ initialData, assignments, canExportRep
 
   // Render leaderboard - this is a large component, keeping it here for now
   // In a real implementation, you'd split this into smaller components
+  
+  // Extract display students to avoid nested ternary operations
+  const displayStudents = filters ? filteredStudents : leaderboard
+  const displayCount = displayStudents.length
+  
   return (
     <>
-      {/* Stats Section */}
-      <section className="container mx-auto px-6 py-16">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white/5 backdrop-blur-sm rounded-xl p-6 text-center border border-white/10 hover:border-orange-500/50 transition-colors">
-            <div className="flex justify-center mb-3">
-              <UsersIcon className="w-8 h-8 text-orange-400" />
-            </div>
-            <div className="text-3xl font-bold text-white mb-2">{stats.totalStudents || 0}</div>
-            <div className="text-gray-300">{t('dashboard.stats.students')}</div>
-          </div>
-          <div className="bg-white/5 backdrop-blur-sm rounded-xl p-6 text-center border border-white/10 hover:border-orange-500/50 transition-colors">
-            <div className="flex justify-center mb-3">
-              <BookOpenIcon className="w-8 h-8 text-orange-400" />
-            </div>
-            <div className="text-3xl font-bold text-white mb-2">{stats.totalAssignments || 0}</div>
-            <div className="text-gray-300">{t('dashboard.stats.assignments')}</div>
-          </div>
-          <div className="bg-white/5 backdrop-blur-sm rounded-xl p-6 text-center border border-white/10 hover:border-orange-500/50 transition-colors">
-            <div className="flex justify-center mb-3">
-              <TrophyIcon className="w-8 h-8 text-orange-400" />
-            </div>
-            <div className="text-3xl font-bold text-white mb-2">{stats.avgScore || 0}%</div>
-            <div className="text-gray-300">{t('dashboard.stats.average_score')}</div>
-          </div>
-          <div className="bg-white/5 backdrop-blur-sm rounded-xl p-6 text-center border border-white/10 hover:border-orange-500/50 transition-colors">
-            <div className="flex justify-center mb-3">
-              <TrendingUpIcon className="w-8 h-8 text-orange-400" />
-            </div>
-            <div className="text-3xl font-bold text-white mb-2">{stats.completionRate || 0}%</div>
-            <div className="text-gray-300">{t('dashboard.stats.completion_rate')}</div>
-          </div>
-        </div>
-      </section>
+      {/* Stats Section - extracted to separate component */}
+      <DashboardStats stats={stats} t={t} />
 
       {/* Filters */}
       <section className="container mx-auto px-6 py-4">
@@ -431,13 +646,13 @@ export default function DashboardClient({ initialData, assignments, canExportRep
               )}
               <div className="flex items-center gap-2 px-4 py-2 bg-orange-100 text-orange-700 rounded-full text-sm font-medium">
                 <UsersIcon className="w-4 h-4" />
-                {filters !== null ? filteredStudents.length : leaderboard.length}{" "}
+                {displayCount}{" "}
                 {t('leaderboard.columns.students')}
               </div>
             </div>
           </div>
 
-          {(filters !== null ? filteredStudents : leaderboard).length === 0 ? (
+          {displayCount === 0 ? (
             <div className="text-center py-12">
               <TrophyIcon className="w-12 h-12 text-gray-300 mx-auto mb-4" />
               <p className="text-gray-600">{t('common.no_data')}</p>
@@ -452,7 +667,8 @@ export default function DashboardClient({ initialData, assignments, canExportRep
                 {/* Header de columnas */}
                 <div className="hidden md:grid grid-cols-13 items-center px-6 py-4 bg-gray-50 rounded-lg text-sm font-semibold text-gray-700 mb-3">
                   <div className="col-span-1"></div> {/* Avatar */}
-                  <div
+                  <button
+                    type="button"
                     className="col-span-4 text-left cursor-pointer hover:bg-gray-100 rounded px-2 py-1 -mx-2 transition-colors flex items-center gap-1"
                     onClick={() => handleSort("username")}
                   >
@@ -462,8 +678,9 @@ export default function DashboardClient({ initialData, assignments, canExportRep
                         {sortConfig.direction === "asc" ? "↑" : "↓"}
                       </span>
                     )}
-                  </div>
-                  <div
+                  </button>
+                  <button
+                    type="button"
                     className="col-span-2 text-center cursor-pointer hover:bg-gray-100 rounded px-2 py-1 -mx-2 transition-colors flex items-center justify-center gap-1"
                     onClick={() => handleSort("assignments")}
                   >
@@ -473,8 +690,9 @@ export default function DashboardClient({ initialData, assignments, canExportRep
                         {sortConfig.direction === "asc" ? "↑" : "↓"}
                       </span>
                     )}
-                  </div>
-                  <div
+                  </button>
+                  <button
+                    type="button"
                     className="col-span-2 text-center cursor-pointer hover:bg-gray-100 rounded px-2 py-1 -mx-2 transition-colors flex items-center justify-center gap-1"
                     onClick={() => handleSort("resolution_time")}
                   >
@@ -484,21 +702,10 @@ export default function DashboardClient({ initialData, assignments, canExportRep
                         {sortConfig.direction === "asc" ? "↑" : "↓"}
                       </span>
                     )}
-                  </div>
-                  {/* Hidden: Puntos column
-                  <div
-                    className="col-span-2 text-center cursor-pointer hover:bg-gray-100 rounded px-2 py-1 -mx-2 transition-colors flex items-center justify-center gap-1"
-                    onClick={() => handleSort("total_score")}
-                  >
-                    {t('leaderboard.columns.points')}
-                    {sortConfig.key === "total_score" && (
-                      <span className="text-orange-500">
-                        {sortConfig.direction === "asc" ? "↑" : "↓"}
-                      </span>
-                    )}
-                  </div>
-                  */}
-                  <div
+                  </button>
+                  
+                  <button
+                    type="button"
                     className="col-span-2 text-center cursor-pointer hover:bg-gray-100 rounded px-2 py-1 -mx-2 transition-colors flex items-center justify-center gap-1"
                     onClick={() => handleSort("progress")}
                   >
@@ -508,8 +715,9 @@ export default function DashboardClient({ initialData, assignments, canExportRep
                         {sortConfig.direction === "asc" ? "↑" : "↓"}
                       </span>
                     )}
-                  </div>
-                  <div
+                  </button>
+                  <button
+                    type="button"
                     className="col-span-1 text-center cursor-pointer hover:bg-gray-100 rounded px-2 py-1 -mx-2 transition-colors flex items-center justify-center gap-1"
                     onClick={() => handleSort("quality_score")}
                     title={t('leaderboard.columns.quality_score_tooltip')}
@@ -520,8 +728,9 @@ export default function DashboardClient({ initialData, assignments, canExportRep
                         {sortConfig.direction === "asc" ? "↑" : "↓"}
                       </span>
                     )}
-                  </div>
-                  <div
+                  </button>
+                  <button
+                    type="button"
                     className="col-span-1 text-center cursor-pointer hover:bg-gray-100 rounded px-2 py-1 -mx-2 transition-colors flex items-center justify-center gap-1"
                     onClick={() => handleSort("review_status")}
                   >
@@ -531,26 +740,12 @@ export default function DashboardClient({ initialData, assignments, canExportRep
                         {sortConfig.direction === "asc" ? "↑" : "↓"}
                       </span>
                     )}
-                  </div>
+                  </button>
                 </div>
 
                 <div className="space-y-1">
-                  {(filters !== null ? filteredStudents : leaderboard).map((student, index) => {
-                    const colors = [
-                      "bg-pink-500",
-                      "bg-blue-500",
-                      "bg-teal-500",
-                      "bg-purple-500",
-                      "bg-indigo-500",
-                      "bg-cyan-500",
-                      "bg-emerald-500",
-                      "bg-rose-500",
-                      "bg-amber-500",
-                      "bg-lime-500",
-                      "bg-orange-500",
-                      "bg-violet-500",
-                    ]
-                    const colorClass = colors[index % colors.length]
+                  {displayStudents.map((student, index) => {
+                    const colorClass = getAvatarColor(index)
 
                     return (
                       <div
@@ -561,10 +756,12 @@ export default function DashboardClient({ initialData, assignments, canExportRep
                         <div className="hidden md:grid grid-cols-13 items-center px-6 py-4 hover:bg-gray-50 transition-colors duration-200">
                           {/* Avatar de GitHub */}
                           <div className="col-span-1 flex justify-center">
-                            <img
+                            <Image
                               src={`https://github.com/${student.github_username}.png`}
                               alt={`${student.github_username} avatar`}
-                              className="w-11 h-11 rounded-full shadow-sm border-2 border-gray-200 hover:border-orange-300 transition-colors duration-200"
+                              width={44}
+                              height={44}
+                              className="rounded-full shadow-sm border-2 border-gray-200 hover:border-orange-300 transition-colors duration-200"
                               onError={(e) => {
                                 const target = e.target as HTMLImageElement
                                 target.style.display = "none"
@@ -573,7 +770,7 @@ export default function DashboardClient({ initialData, assignments, canExportRep
                               }}
                             />
                             <div
-                              className={`w-11 h-11 ${colorClass} rounded-full flex items-center justify-center text-white font-bold text-sm shadow-sm hidden`}
+                              className={`w-11 h-11 ${colorClass} rounded-full items-center justify-center text-white font-bold text-sm shadow-sm hidden`}
                             >
                               {student.github_username.charAt(0).toUpperCase()}
                             </div>
@@ -590,7 +787,7 @@ export default function DashboardClient({ initialData, assignments, canExportRep
                                   className="flex items-center gap-1 font-semibold text-blue-600 hover:text-blue-800 hover:underline truncate text-sm transition-colors"
                                 >
                                   {student.github_username}
-                                  <GithubIcon className="w-3 h-3 flex-shrink-0" />
+                                  <GitHubIcon className="w-3 h-3 shrink-0" />
                                 </a>
                                 {student.total_score > 0 ? (
                                   <div 
@@ -653,17 +850,7 @@ export default function DashboardClient({ initialData, assignments, canExportRep
                           {/* Tiempo dedicado */}
                           <div className="col-span-2 text-center">
                             <div className="text-sm text-gray-700 font-medium">
-                              {(() => {
-                                const totalDays = totalResolutionTimeByStudent.get(student.github_username)
-                                if (totalDays === undefined || totalDays === 0) {
-                                  return <span className="text-gray-400">N/A</span>
-                                }
-                                return (
-                                  <span className="text-orange-600 font-semibold">
-                                    {totalDays}d
-                                  </span>
-                                )
-                              })()}
+                              {renderResolutionTime(totalResolutionTimeByStudent.get(student.github_username))}
                             </div>
                           </div>
 
@@ -680,23 +867,11 @@ export default function DashboardClient({ initialData, assignments, canExportRep
                             <div className="flex items-center gap-2">
                               <div className="flex-1 bg-gray-200 rounded-full h-2">
                                 <div
-                                  className={`h-2 rounded-full transition-all duration-300 ${
-                                    student.progress >= 80 ? "bg-green-500"
-                                      : student.progress >= 60 ? "bg-yellow-500"
-                                      : student.progress >= 40 ? "bg-orange-500"
-                                      : "bg-red-500"
-                                  }`}
+                                  className={`h-2 rounded-full transition-all duration-300 ${getProgressColorClass(student.progress)}`}
                                   style={{ width: `${Math.min(student.progress || 0, 100)}%` }}
                                 />
                               </div>
-                              <div
-                                className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                                  student.progress >= 80 ? "bg-green-100 text-green-800"
-                                    : student.progress >= 60 ? "bg-yellow-100 text-yellow-800"
-                                    : student.progress >= 40 ? "bg-orange-100 text-orange-800"
-                                    : "bg-red-100 text-red-800"
-                                }`}
-                              >
+                              <div className={`px-2 py-1 rounded-full text-xs font-semibold ${getProgressBadgeClass(student.progress)}`}>
                                 {student.progress || 0}%
                               </div>
                             </div>
@@ -704,93 +879,24 @@ export default function DashboardClient({ initialData, assignments, canExportRep
 
                           {/* Puntuación de Calidad */}
                           <div className="col-span-1 text-center">
-                            {(() => {
-                              const reviewStatus = reviewStatuses.get(student.github_username)
-                              if (!reviewStatus || !reviewStatus.averageQualityScore) {
-                                return (
-                                  <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs font-medium">
-                                    0/10
-                                  </span>
-                                )
-                              }
-
-                              const getQualityColor = (score: number) => {
-                                if (score >= 8) return "bg-green-100 text-green-800"
-                                if (score >= 6) return "bg-yellow-100 text-yellow-800"
-                                return "bg-red-100 text-red-800"
-                              }
-
-                              return (
-                                <div className="flex flex-col items-center gap-1">
-                                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${getQualityColor(reviewStatus.averageQualityScore)}`}>
-                                    {reviewStatus.averageQualityScore}/10
-                                  </span>
-                                  {reviewStatus.qualityScoreCount > 1 && (
-                                    <span className="text-xs text-gray-500">
-                                      ({reviewStatus.qualityScoreCount} {t('leaderboard.evaluations')})
-                                    </span>
-                                  )}
-                                </div>
-                              )
-                            })()}
+                            {renderQualityScore(reviewStatuses.get(student.github_username), t)}
                           </div>
 
                           {/* Estado de Revisión */}
                           <div className="col-span-1 text-center">
-                            {(() => {
-                              const reviewStatus = reviewStatuses.get(student.github_username)
-                              if (!reviewStatus || !reviewStatus.hasReviewer) {
-                                return (
-                                  <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs font-medium">
-                                    {t('leaderboard.status.no_reviewer')}
-                                  </span>
-                                )
-                              }
-
-                              const statusColors = {
-                                pending: "bg-yellow-100 text-yellow-800",
-                                in_progress: "bg-blue-100 text-blue-800",
-                                completed: "bg-green-100 text-green-800"
-                              }
-
-                              const statusIcons = {
-                                pending: <Circle className="w-3 h-3" />,
-                                in_progress: <Play className="w-3 h-3" />,
-                                completed: <CheckCircle2 className="w-3 h-3" />
-                              }
-
-                              const currentStatus = reviewStatus.status || 'pending'
-
-                              return (
-                                <div className="flex flex-col items-center gap-1">
-                                  {/* Reviewer name */}
-                                  <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium truncate max-w-24">
-                                    {reviewStatus.latestReviewer}
-                                  </span>
-                                  {/* Status indicator */}
-                                  <span className={`px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${statusColors[currentStatus]}`}>
-                                    {statusIcons[currentStatus]}
-                                    <span className="hidden xl:inline">{t(`review_system.status.${currentStatus}`)}</span>
-                                  </span>
-                                  {/* Multiple reviewers indicator */}
-                                  {reviewStatus.reviewerCount > 1 && (
-                                    <span className="text-xs text-gray-500">
-                                      +{reviewStatus.reviewerCount - 1} {t('leaderboard.more_reviewers')}
-                                    </span>
-                                  )}
-                                </div>
-                              )
-                            })()}
+                            {renderReviewStatus(reviewStatuses.get(student.github_username), t)}
                           </div>
                         </div>
 
                         {/* Vista móvil */}
                         <div className="md:hidden p-4">
                           <div className="flex items-center gap-3 mb-3">
-                            <img
+                            <Image
                               src={`https://github.com/${student.github_username}.png`}
                               alt={`${student.github_username} avatar`}
-                              className="w-12 h-12 rounded-full shadow-sm border-2 border-gray-200"
+                              width={48}
+                              height={48}
+                              className="rounded-full shadow-sm border-2 border-gray-200"
                               onError={(e) => {
                                 const target = e.target as HTMLImageElement
                                 target.style.display = "none"
@@ -798,7 +904,7 @@ export default function DashboardClient({ initialData, assignments, canExportRep
                                 if (fallback) fallback.style.display = "flex"
                               }}
                             />
-                            <div className={`w-12 h-12 ${colorClass} rounded-full flex items-center justify-center text-white font-bold text-lg hidden`}>
+                            <div className={`w-12 h-12 ${colorClass} rounded-full items-center justify-center text-white font-bold text-lg hidden`}>
                               {student.github_username.charAt(0).toUpperCase()}
                             </div>
 
@@ -811,7 +917,7 @@ export default function DashboardClient({ initialData, assignments, canExportRep
                                     rel="noopener noreferrer"
                                     className="flex items-center gap-1 font-semibold text-blue-600 hover:text-blue-800 hover:underline truncate text-lg transition-colors"
                                   >
-                                    <GithubIcon className="w-4 h-4 flex-shrink-0" />
+                                    <GitHubIcon className="w-4 h-4 shrink-0" />
                                     {student.github_username}
                                   </a>
                                   {student.total_score > 0 ? (
@@ -860,12 +966,7 @@ export default function DashboardClient({ initialData, assignments, canExportRep
                               </div>
                             </div>
 
-                            <div className={`px-3 py-1 rounded-full text-sm font-medium ${
-                              student.progress >= 80 ? "bg-green-100 text-green-700"
-                                : student.progress >= 60 ? "bg-yellow-100 text-yellow-700"
-                                : student.progress >= 40 ? "bg-orange-100 text-orange-700"
-                                : "bg-red-100 text-red-700"
-                            }`}>
+                            <div className={`px-3 py-1 rounded-full text-sm font-medium ${getProgressBadgeClass(student.progress)}`}>
                               {student.progress || 0}%
                             </div>
                           </div>
@@ -873,12 +974,7 @@ export default function DashboardClient({ initialData, assignments, canExportRep
                           <div className="space-y-2">
                             <div className="w-full bg-gray-200 rounded-full h-3">
                               <div
-                                className={`h-3 rounded-full transition-all duration-300 ${
-                                  student.progress >= 80 ? "bg-green-500"
-                                    : student.progress >= 60 ? "bg-yellow-500"
-                                    : student.progress >= 40 ? "bg-orange-500"
-                                    : "bg-red-500"
-                                }`}
+                                className={`h-3 rounded-full transition-all duration-300 ${getProgressColorClass(student.progress)}`}
                                 style={{ width: `${Math.min(student.progress || 0, 100)}%` }}
                               />
                             </div>
@@ -960,7 +1056,7 @@ export default function DashboardClient({ initialData, assignments, canExportRep
                   <button
                     key={assignment.id}
                     onClick={() => openReviewModal(selectedStudentForAssignment, assignment.name)}
-                    className="w-full p-3 text-left bg-gradient-to-r from-white to-gray-50 rounded-xl border border-gray-200/50 shadow-sm hover:shadow-md transition-shadow hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50"
+                    className="w-full p-3 text-left bg-linear-to-r from-white to-gray-50 rounded-xl border border-gray-200/50 shadow-sm hover:shadow-md transition-shadow hover:bg-linear-to-r hover:from-blue-50 hover:to-indigo-50"
                   >
                     <div className="font-medium text-gray-900">{assignment.name}</div>
                     <div className="text-sm text-gray-500">

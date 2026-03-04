@@ -13,10 +13,10 @@ import {
 } from "@/data/reviewCriteria";
 
 interface ReviewChecklistProps {
-  evaluations: CriterionEvaluation[];
-  onEvaluationChange: (evaluation: CriterionEvaluation) => void;
-  onComplete: () => void;
-  disabled?: boolean;
+  readonly evaluations: CriterionEvaluation[];
+  readonly onEvaluationChange: (evaluation: CriterionEvaluation) => void;
+  readonly onComplete: () => void;
+  readonly disabled?: boolean;
 }
 
 export default function ReviewChecklist({
@@ -59,6 +59,20 @@ export default function ReviewChecklist({
       evaluations.some(e => e.criterionId === c.id)
     ).length;
     return { evaluated, total: criteria.length };
+  };
+
+  // Helper function to get score dot color
+  const getScoreDotColor = (num: number, score: number): string => {
+    if (num > Math.round(score)) {
+      return 'bg-gray-200';
+    }
+    if (num <= 6) {
+      return 'bg-red-400';
+    }
+    if (num <= 8) {
+      return 'bg-yellow-400';
+    }
+    return 'bg-green-400';
   };
 
   return (
@@ -161,15 +175,7 @@ export default function ReviewChecklist({
               {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
                 <div
                   key={num}
-                  className={`w-2.5 h-2.5 rounded-full ${
-                    num <= Math.round(currentScore)
-                      ? num <= 6
-                        ? 'bg-red-400'
-                        : num <= 8
-                        ? 'bg-yellow-400'
-                        : 'bg-green-400'
-                      : 'bg-gray-200'
-                  }`}
+                  className={`w-2.5 h-2.5 rounded-full ${getScoreDotColor(num, currentScore)}`}
                 />
               ))}
             </div>
@@ -199,22 +205,36 @@ function CriterionRow({
   onScoreClick,
   disabled
 }: {
-  criterion: ReviewCriterion;
-  evaluation?: CriterionEvaluation;
-  onScoreClick: (score: number) => void;
-  disabled: boolean;
+  readonly criterion: ReviewCriterion;
+  readonly evaluation?: CriterionEvaluation;
+  readonly onScoreClick: (score: number) => void;
+  readonly disabled: boolean;
 }) {
   const { t } = useTranslation();
   const [isHovering, setIsHovering] = useState<number | null>(null);
+
+  // Helper function to get score button color
+  const getScoreButtonColor = (score: number, isSelected: boolean): string => {
+    if (!isSelected) {
+      return 'bg-gray-100 text-gray-600 hover:bg-gray-200';
+    }
+    if (score <= 2) {
+      return 'bg-red-500 text-white';
+    }
+    if (score <= 3) {
+      return 'bg-yellow-500 text-white';
+    }
+    return 'bg-emerald-500 text-white';
+  };
 
   return (
     <div className="p-3 bg-white hover:bg-gray-50 transition-colors">
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-start gap-3 flex-1 min-w-0">
           {evaluation ? (
-            <CheckCircle2 className="w-5 h-5 text-emerald-500 flex-shrink-0 mt-0.5" />
+            <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
           ) : (
-            <Circle className="w-5 h-5 text-gray-300 flex-shrink-0 mt-0.5" />
+            <Circle className="w-5 h-5 text-gray-300 shrink-0 mt-0.5" />
           )}
           <div className="min-w-0">
             <p className={`font-medium ${evaluation ? 'text-gray-900' : 'text-gray-600'}`}>
@@ -227,7 +247,7 @@ function CriterionRow({
         </div>
 
         {/* Score Buttons */}
-        <div className="flex items-center gap-1 flex-shrink-0">
+        <div className="flex items-center gap-1 shrink-0">
           {[1, 2, 3, 4, 5].map((score) => {
             const isSelected = evaluation?.score === score;
             const isHovered = isHovering === score;
@@ -241,13 +261,7 @@ function CriterionRow({
                 onMouseLeave={() => setIsHovering(null)}
                 disabled={disabled}
                 className={`relative w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium transition-all ${
-                  isSelected
-                    ? score <= 2
-                      ? 'bg-red-500 text-white'
-                      : score <= 3
-                      ? 'bg-yellow-500 text-white'
-                      : 'bg-emerald-500 text-white'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  getScoreButtonColor(score, isSelected)
                 } ${disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
                 title={t(`review.score_labels.${score}`)}
               >

@@ -31,74 +31,22 @@ export async function GET() {
     const userRole = session.user?.role
     const isAdminOrInstructor = userRole === 'admin' || userRole === 'instructor'
 
-    // Verify Supabase client is initialized
-    if (!supabaseUrl || !supabaseServiceKey) {
-      console.error('Supabase configuration missing:', {
-        hasUrl: !!supabaseUrl,
-        hasKey: !!supabaseServiceKey
-      })
+    // Verify Supabase configuration
+    const configError = validateSupabaseConfig()
+    if (configError) {
+      return configError
+    }
+
+    // Fetch dashboard data
+    const dashboardData = await fetchDashboardData(isAdminOrInstructor, session.user?.username)
+    if (dashboardData.error) {
       return NextResponse.json(
-        { error: 'Server configuration error' },
+        { error: dashboardData.error, details: dashboardData.details },
         { status: 500 }
       )
     }
 
-    // Get leaderboard first as we need it for stats calculation
-    // Only admins/instructors get full leaderboard, students get filtered/anonymized data
-    const leaderboardResult = await Promise.allSettled([
-      isAdminOrInstructor ? getLeaderboard() : getAnonymizedLeaderboard(session.user?.username)
-    ])
-    const leaderboard = leaderboardResult[0].status === 'fulfilled' ? leaderboardResult[0].value : []
-    
-    if (leaderboardResult[0].status === 'rejected') {
-      console.error('Failed to fetch leaderboard:', leaderboardResult[0].reason)
-    }
-    
-    // Get remaining data in parallel
-    const results = await Promise.allSettled([
-      getAssignments(),
-      getStudentStats(leaderboard), // Pass leaderboard to stats calculation
-      isAdminOrInstructor ? getAllStudentReviewersGrouped() : Promise.resolve(new Map()),
-      getGrades() // Get all grades for recalculating assignments_completed
-    ])
-
-    // Check for any failures
-    const failed = results.find(r => r.status === 'rejected')
-    if (failed && failed.status === 'rejected') {
-      console.error('Dashboard data fetch failed:', failed.reason)
-      return NextResponse.json(
-        { 
-          error: 'Failed to fetch dashboard data',
-          details: failed.reason?.message || String(failed.reason)
-        },
-        { status: 500 }
-      )
-    }
-
-    const [assignmentsResult, statsResult, reviewersResult, gradesResult] = results
-    const assignmentsData = assignmentsResult.status === 'fulfilled' ? assignmentsResult.value : []
-    const statsData = statsResult.status === 'fulfilled' ? statsResult.value : null
-    const reviewersData = reviewersResult.status === 'fulfilled' ? reviewersResult.value : new Map()
-    const allGradesData = gradesResult.status === 'fulfilled' ? gradesResult.value : []
-
-    // Convert Map to object if needed
-    const reviewersGrouped = reviewersData instanceof Map 
-      ? Object.fromEntries(reviewersData) 
-      : {}
-
-    return NextResponse.json({
-      leaderboard: leaderboard || [],
-      assignments: assignmentsData || [],
-      stats: statsData || {
-        totalStudents: 0,
-        totalAssignments: 0,
-        totalGrades: 0,
-        avgScore: 0,
-        completionRate: 0
-      },
-      reviewersGrouped,
-      allGrades: allGradesData || []
-    })
+    return NextResponse.json(dashboardData)
   } catch (error) {
     console.error('Error fetching dashboard data:', error)
     const errorMessage = error instanceof Error ? error.message : String(error)
@@ -109,6 +57,90 @@ export async function GET() {
       },
       { status: 500 }
     )
+  }
+}
+
+function validateSupabaseConfig(): NextResponse | null {
+  if (!supabaseUrl || !supabaseServiceKey) {
+    console.error('Supabase configuration missing:', {
+      hasUrl: !!supabaseUrl,
+      hasKey: !!supabaseServiceKey
+    })
+    return NextResponse.json(
+      { error: 'Server configuration error' },
+      { status: 500 }
+    )
+  }
+  return null
+}
+
+async function fetchDashboardData(isAdminOrInstructor: boolean, username?: string): Promise<{ error?: string; details?: string; leaderboard: unknown[]; assignments: unknown[]; stats: Record<string, number>; reviewersGrouped: Record<string, unknown[]>; allGrades: unknown[] }> {
+  // Get leaderboard first as we need it for stats calculation
+  const leaderboard = await fetchLeaderboard(isAdminOrInstructor, username)
+  
+  // Get remaining data in parallel
+  const results = await Promise.allSettled([
+    getAssignments(),
+    getStudentStats(leaderboard),
+    isAdminOrInstructor ? getAllStudentReviewersGrouped() : Promise.resolve(new Map()),
+    getGrades()
+  ])
+
+  // Check for any failures
+  const rejectedResult = results.find(r => r.status === 'rejected')
+  if (rejectedResult) {
+    console.error('Dashboard data fetch failed:', rejectedResult.reason)
+    return {
+      error: 'Failed to fetch dashboard data',
+      details: rejectedResult.reason?.message || String(rejectedResult.reason),
+      leaderboard: [],
+      assignments: [],
+      stats: { totalStudents: 0, totalAssignments: 0, totalGrades: 0, avgScore: 0, completionRate: 0 },
+      reviewersGrouped: {},
+      allGrades: []
+    }
+  }
+
+  return processDashboardResults(results, leaderboard)
+}
+
+async function fetchLeaderboard(isAdminOrInstructor: boolean, username?: string) {
+  const leaderboardResult = await Promise.allSettled([
+    isAdminOrInstructor ? getLeaderboard() : getAnonymizedLeaderboard(username)
+  ])
+  
+  if (leaderboardResult[0].status === 'rejected') {
+    console.error('Failed to fetch leaderboard:', leaderboardResult[0].reason)
+    return []
+  }
+  
+  return leaderboardResult[0].value || []
+}
+
+function processDashboardResults(results: PromiseSettledResult<unknown>[], leaderboard: unknown[]) {
+  const [assignmentsResult, statsResult, reviewersResult, gradesResult] = results
+  const assignmentsData = assignmentsResult.status === 'fulfilled' ? assignmentsResult.value as unknown[] : []
+  const statsData = statsResult.status === 'fulfilled' ? statsResult.value as { totalStudents: number; totalAssignments: number; totalGrades: number; avgScore: number; completionRate: number } | null : null
+  const reviewersData = reviewersResult.status === 'fulfilled' ? reviewersResult.value as Map<string, unknown[]> : new Map()
+  const allGradesData = gradesResult.status === 'fulfilled' ? gradesResult.value as unknown[] : []
+
+  // Convert Map to object if needed
+  const reviewersGrouped = reviewersData instanceof Map 
+    ? Object.fromEntries(reviewersData) 
+    : {}
+
+  return {
+    leaderboard: leaderboard || [],
+    assignments: assignmentsData || [],
+    stats: statsData || {
+      totalStudents: 0,
+      totalAssignments: 0,
+      totalGrades: 0,
+      avgScore: 0,
+      completionRate: 0
+    },
+    reviewersGrouped,
+    allGrades: allGradesData || []
   }
 }
 
@@ -319,10 +351,14 @@ async function getStudentStats(leaderboard: LeaderboardEntry[] = []) {
     const assignments = assignmentsResult
     const grades = gradesResult
 
-    // Count students from leaderboard (more accurate) or from grades
-    const totalStudents = leaderboard.length > 0 
-      ? leaderboard.length 
-      : (grades.data ? new Set(grades.data.map(g => g.github_username)).size : 0)
+    const totalStudents = leaderboard.length > 0
+      ? leaderboard.length
+      : calculateTotalStudentsFromGrades(grades)
+
+    // Helper function to calculate total students from grades
+    function calculateTotalStudentsFromGrades(grades: { data?: { github_username: string }[] | null }): number {
+      return grades.data ? new Set(grades.data.map(g => g.github_username)).size : 0
+    }
     
     const totalAssignments = assignments.data?.length || 0
     const totalGrades = grades.data?.length || 0
@@ -331,7 +367,7 @@ async function getStudentStats(leaderboard: LeaderboardEntry[] = []) {
     
     // Calculate average score from valid grades
     const avgScore = validGrades.length > 0
-      ? Math.round(validGrades.reduce((sum, g) => sum + (parseInt(g.points_awarded) || 0), 0) / validGrades.length)
+      ? Math.round(validGrades.reduce((sum, g) => sum + (Number.parseInt(g.points_awarded) || 0), 0) / validGrades.length)
       : 0
 
     // Calculate completion rate: students with at least one grade / total students

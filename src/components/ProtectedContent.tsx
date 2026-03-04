@@ -2,12 +2,13 @@
 
 import { useSession } from "next-auth/react"
 import { ReactNode, useEffect, useRef } from "react"
+import Image from "next/image"
 import UserProfile from "@/components/UserProfile"
 import { RefreshCwIcon } from "lucide-react"
 import { useTranslation } from '@/hooks/useTranslation'
 
 interface ProtectedContentProps {
-  children: ReactNode
+  readonly children: ReactNode
 }
 
 export default function ProtectedContent({ children }: ProtectedContentProps) {
@@ -31,7 +32,7 @@ export default function ProtectedContent({ children }: ProtectedContentProps) {
   // Mostrar loading mientras se verifica la sesión
   if (status === "loading") {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-gray-900 to-black flex items-center justify-center">
+      <div className="min-h-screen bg-linear-to-br from-slate-900 via-gray-900 to-black flex items-center justify-center">
         <div className="text-center">
           <RefreshCwIcon className="w-8 h-8 animate-spin text-orange-500 mx-auto mb-4" />
           <p className="text-white">{t('common.verifying_auth')}</p>
@@ -43,21 +44,21 @@ export default function ProtectedContent({ children }: ProtectedContentProps) {
   // Mostrar pantalla de no autenticado
   if (!session) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-gray-900 to-black flex items-center justify-center">
+      <div className="min-h-screen bg-linear-to-br from-slate-900 via-gray-900 to-black flex items-center justify-center">
         <div className="text-center max-w-lg mx-auto px-6">
           {/* Logo */}
           <div className="w-24 h-24 bg-white rounded-2xl p-3 flex items-center justify-center shadow-2xl mx-auto mb-8">
-              <img
+              <Image
                 src="https://res.cloudinary.com/dkuwkpihs/image/upload/v1758759628/web-app-manifest-192x192_dkecn9.png"
-              alt="B4OS Logo"
-              width={72}
-              height={72}
-              className="w-18 h-18 object-contain"
-            />
+                alt="B4OS Logo"
+                width={72}
+                height={72}
+                className="object-contain w-18 h-18"
+              />
           </div>
           
           {/* Título */}
-          <h1 className="text-5xl font-bold bg-gradient-to-r from-white via-orange-100 to-orange-300 bg-clip-text text-transparent mb-6">
+          <h1 className="text-5xl font-bold bg-linear-to-r from-white via-orange-100 to-orange-300 bg-clip-text text-transparent mb-6">
             {t('dashboard.title')}
           </h1>
           
@@ -83,21 +84,21 @@ export default function ProtectedContent({ children }: ProtectedContentProps) {
   // Verificar si el usuario está autorizado
   if (!session.user?.isAuthorized) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-gray-900 to-black flex items-center justify-center">
+      <div className="min-h-screen bg-linear-to-br from-slate-900 via-gray-900 to-black flex items-center justify-center">
         <div className="text-center max-w-lg mx-auto px-6">
           {/* Logo */}
           <div className="w-24 h-24 bg-white rounded-2xl p-3 flex items-center justify-center shadow-2xl mx-auto mb-8">
-              <img
+              <Image
                 src="https://res.cloudinary.com/dkuwkpihs/image/upload/v1758759628/web-app-manifest-192x192_dkecn9.png"
-              alt="B4OS Logo"
-              width={72}
-              height={72}
-              className="w-18 h-18 object-contain"
-            />
+                alt="B4OS Logo"
+                width={72}
+                height={72}
+                className="object-contain w-18 h-18"
+              />
           </div>
           
           {/* Título */}
-          <h1 className="text-5xl font-bold bg-gradient-to-r from-red-400 via-red-300 to-red-200 bg-clip-text text-transparent mb-6">
+          <h1 className="text-5xl font-bold bg-linear-to-r from-red-400 via-red-300 to-red-200 bg-clip-text text-transparent mb-6">
             {t('auth.unauthorized_title')}
           </h1>
           
@@ -118,7 +119,7 @@ export default function ProtectedContent({ children }: ProtectedContentProps) {
           
           <div className="flex justify-center">
             <button
-              onClick={() => window.location.href = '/api/auth/signout'}
+              onClick={() => globalThis.window.location.href = '/api/auth/signout'}
               className="bg-red-600 hover:bg-red-700 text-white px-8 py-3 rounded-lg font-semibold transition-colors duration-200"
             >
               {t('auth.sign_out')}

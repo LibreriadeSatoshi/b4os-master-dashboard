@@ -3,6 +3,7 @@
 import { useSearchParams } from 'next/navigation'
 import { AlertCircle, Home } from 'lucide-react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { Suspense } from 'react'
 
 function AuthErrorContent() {
@@ -23,13 +24,13 @@ function AuthErrorContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-gray-900 to-black flex items-center justify-center">
+    <div className="min-h-screen bg-linear-to-br from-slate-900 via-gray-900 to-black flex items-center justify-center">
       <div className="max-w-md w-full mx-4">
         <div className="bg-white/10 backdrop-blur-sm rounded-xl p-8 border border-white/20">
           {/* Logo */}
           <div className="text-center mb-8">
             <div className="w-16 h-16 bg-white rounded-lg p-2 mx-auto mb-4">
-              <img
+              <Image
                 src="https://res.cloudinary.com/dkuwkpihs/image/upload/v1758759628/web-app-manifest-192x192_dkecn9.png"
                 alt="B4OS Logo"
                 width={64}
@@ -43,7 +44,7 @@ function AuthErrorContent() {
           {/* Error Message */}
           <div className="mb-8">
             <div className="flex items-center gap-3 bg-red-500/20 border border-red-500/30 rounded-lg p-4 mb-4">
-              <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
+              <AlertCircle className="w-5 h-5 text-red-400 shrink-0" />
               <div>
                 <p className="text-red-100 font-medium">Access Denied</p>
                 <p className="text-red-200 text-sm mt-1">
@@ -93,7 +94,7 @@ function AuthErrorContent() {
 export default function AuthError() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-gray-900 to-black flex items-center justify-center">
+      <div className="min-h-screen bg-linear-to-br from-slate-900 via-gray-900 to-black flex items-center justify-center">
         <div className="text-white">Loading...</div>
       </div>
     }>

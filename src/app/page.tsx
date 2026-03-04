@@ -1,4 +1,5 @@
 import { getServerSession } from 'next-auth'
+import Image from 'next/image'
 import { authOptions } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { getDashboardData } from '@/lib/dashboard-data'
@@ -19,7 +20,7 @@ export default async function Home() {
     // User not authorized - ProtectedContent will handle this
     return (
       <ProtectedContent>
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-gray-900 to-black flex items-center justify-center">
+        <div className="min-h-screen bg-linear-to-br from-slate-900 via-gray-900 to-black flex items-center justify-center">
           <div className="text-center">
             <p className="text-white">Unauthorized</p>
           </div>
@@ -51,7 +52,7 @@ export default async function Home() {
 
   return (
     <ProtectedContent>
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-gray-900 to-black">
+      <div className="min-h-screen bg-linear-to-br from-slate-900 via-gray-900 to-black">
         {/* Header - Server rendered */}
         <header className="bg-white/5 backdrop-blur-sm border-b border-white/10">
           <div className="container mx-auto px-6 py-4">
@@ -59,7 +60,7 @@ export default async function Home() {
               <div className="flex items-center justify-between w-full">
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 bg-white rounded-lg p-1 flex items-center justify-center shadow-lg">
-                    <img
+                    <Image
                       src="https://res.cloudinary.com/dkuwkpihs/image/upload/v1758759628/web-app-manifest-192x192_dkecn9.png"
                       alt="B4OS Logo"
                       width={40}

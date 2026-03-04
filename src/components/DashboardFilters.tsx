@@ -5,10 +5,10 @@ import { Filter, SortAsc, SortDesc, RotateCcw, Search } from 'lucide-react'
 import { useTranslation } from '@/hooks/useTranslation'
 
 interface DashboardFiltersProps {
-  onFiltersChange: (filters: FilterState) => void
-  totalStudents: number
-  filteredCount: number
-  assignments: Array<{ name: string; points_available: number | null }>
+  readonly onFiltersChange: (filters: FilterState) => void
+  readonly totalStudents: number
+  readonly filteredCount: number
+  readonly assignments: Array<{ name: string; points_available: number | null }>
 }
 
 export interface FilterState {
@@ -83,6 +83,11 @@ export default function DashboardFilters({ onFiltersChange, totalStudents, filte
       <SortDesc className="w-4 h-4" />
   }
 
+  const getSortOrderText = (key: string, sortBy: string, sortOrder: string) => {
+    if (sortBy !== key) return ''
+    return sortOrder === 'asc' ? `(${t('common.ascending')})` : `(${t('common.descending')})`
+  }
+
   const getShowOnlyLabel = (type: FilterState['showOnly']) => {
     const labels = {
       all: t('filters.status_options.all'),
@@ -149,7 +154,7 @@ export default function DashboardFilters({ onFiltersChange, totalStudents, filte
               <option value="all">{t('filters.all_assignments')}</option>
               {assignments.map((assignment) => (
                 <option key={assignment.name} value={assignment.name}>
-                  {assignment.name.replace(/-/g, ' ').replace(/_/g, ' ')}
+                  {assignment.name.replaceAll('-', ' ').replaceAll('_', ' ')}
                 </option>
               ))}
             </select>
@@ -172,7 +177,7 @@ export default function DashboardFilters({ onFiltersChange, totalStudents, filte
                       ? 'bg-orange-50 border-orange-200 text-orange-700'
                       : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
                   }`}
-                  title={`${desc} ${filters.sortBy === key ? (filters.sortOrder === 'asc' ? `(${t('common.ascending')})` : `(${t('common.descending')})`) : ''}`}
+                  title={`${desc} ${getSortOrderText(key, filters.sortBy, filters.sortOrder)}`}
                 >
                   <div className="flex items-center gap-1">
                     {label}
