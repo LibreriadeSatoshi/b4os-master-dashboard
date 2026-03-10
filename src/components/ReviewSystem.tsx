@@ -16,7 +16,6 @@ import {
   Plus,
   ExternalLink,
   User,
-  MoreVertical,
   Trash2,
   ClipboardList,
   Calendar
@@ -53,7 +52,6 @@ export default function ReviewSystem({
   const [newComment, setNewComment] = useState("");
   const [commentType, setCommentType] = useState<"general" | "code_quality" | "functionality" | "documentation" | "suggestion">("general");
   const [commentPriority, setCommentPriority] = useState<"low" | "medium" | "high">("medium");
-  const [openMenuId, setOpenMenuId] = useState<number | null>(null);
   // Evaluaciones de criterios por revisor (reviewerId -> evaluations)
   const [criteriaEvaluations, setCriteriaEvaluations] = useState<Map<number, CriterionEvaluation[]>>(new Map());
   const [activeReviewerId, setActiveReviewerId] = useState<number | null>(null);
@@ -120,20 +118,6 @@ export default function ReviewSystem({
   useEffect(() => {
     loadData();
   }, [loadData]);
-
-  // Close menu when clicking outside
-  useEffect(() => {
-    const handleClickOutside = () => {
-      if (openMenuId !== null) {
-        setOpenMenuId(null);
-      }
-    };
-
-    if (openMenuId !== null) {
-      document.addEventListener('click', handleClickOutside);
-      return () => document.removeEventListener('click', handleClickOutside);
-    }
-  }, [openMenuId]);
 
   const handleAssignReviewer = async () => {
     console.log("Attempting to assign reviewer:", {
@@ -266,6 +250,7 @@ export default function ReviewSystem({
   };
 
   const handleRemoveReviewer = async (reviewerId: number) => {
+    console.log('Removing reviewer with ID:', reviewerId, 'type:', typeof reviewerId);
     if (confirm(t('review_system.confirm_remove'))) {
       try {
         const response = await fetch(`/api/reviewers?id=${reviewerId}`, {
@@ -470,13 +455,29 @@ export default function ReviewSystem({
             <UserCheck className="w-4 h-4" />
             {t('review_system.assigned_reviewers')}
           </h4>
-          <button
-            onClick={() => setShowAssignForm(!showAssignForm)}
-            className="px-3 py-1.5 text-sm font-medium text-gray-700 hover:text-gray-900 border border-gray-300 hover:border-gray-400 rounded flex items-center gap-1.5 transition-colors mr-4"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            {reviewers.length > 0 ? t('review_system.actions.add_reviewer') : t('review_system.actions.assign_reviewer')}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowAssignForm(!showAssignForm)}
+              className="px-3 py-1.5 text-sm font-medium text-gray-700 hover:text-gray-900 border border-gray-300 hover:border-gray-400 rounded flex items-center gap-1.5 transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              {reviewers.length > 0 ? t('review_system.actions.add_reviewer') : t('review_system.actions.assign_reviewer')}
+            </button>
+            {reviewers.length > 0 && (
+              <button
+                onClick={() => {
+                  if (confirm(t('review_system.actions.confirm_remove_all'))) {
+                    // Remove all reviewers for this assignment
+                    reviewers.forEach(r => handleRemoveReviewer(r.id));
+                  }
+                }}
+                className="px-3 py-1.5 text-sm font-medium text-red-600 hover:text-red-700 border border-red-300 hover:border-red-400 rounded flex items-center gap-1.5 transition-colors"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                {t('review_system.actions.remove_all')}
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Assign Reviewer Form */}
@@ -542,38 +543,12 @@ export default function ReviewSystem({
             </div>
           ) : (
             reviewers.map((reviewer) => {
+              console.log('Rendering reviewer:', reviewer);
               const isActive = activeReviewerId === reviewer.id || reviewer.status === "in_progress";
               const reviewerEvaluations = criteriaEvaluations.get(reviewer.id) || [];
 
               return (
                 <div key={reviewer.id} className="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow relative overflow-hidden">
-                  {/* Options Menu - Top Right */}
-                  <div className="absolute top-3 right-3 z-10">
-                    <button
-                      onClick={() => setOpenMenuId(openMenuId === reviewer.id ? null : reviewer.id)}
-                      className="w-6 h-6 bg-gray-50 hover:bg-gray-100 text-gray-600 hover:text-gray-700 rounded-full flex items-center justify-center transition-colors"
-                      title={t('review_system.options_menu')}
-                    >
-                      <MoreVertical className="w-4 h-4" />
-                    </button>
-
-                    {/* Dropdown Menu */}
-                    {openMenuId === reviewer.id && (
-                      <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-10 min-w-40">
-                        <button
-                          onClick={() => {
-                            handleRemoveReviewer(reviewer.id);
-                            setOpenMenuId(null);
-                          }}
-                          className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                          {t('review_system.actions.remove_reviewer')}
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
                   {/* Reviewer Header */}
                   <div className="p-4">
                     <div className="flex items-center justify-between pr-8">

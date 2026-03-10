@@ -257,6 +257,8 @@
       "add_comment": "Add",
       "add_comment_button": "Add Comment",
       "remove_reviewer": "Remove Reviewer",
+      "remove_all": "Remove Reviewer",
+      "confirm_remove_all": "Are you sure you want to remove this user?",
       "start_review": "Start",
       "complete_review": "Complete"
     },
