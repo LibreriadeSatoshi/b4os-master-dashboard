@@ -276,7 +276,7 @@ async function getStudentStats(leaderboard: LeaderboardEntry[]) {
     // Fallback
     const [assignmentsResult, gradesResult] = await Promise.all([
       supabase.from('zzz_assignments').select('id'),
-      supabase.from('zzz_grades').select('points_awarded, github_username')
+      supabase.from('zzz_grades').select('points_awarded, github_username, assignment_name')
     ])
 
     const assignments = assignmentsResult
@@ -296,12 +296,17 @@ async function getStudentStats(leaderboard: LeaderboardEntry[]) {
 
     const validGrades = grades.data?.filter(g => g.points_awarded !== null && g.points_awarded > 0) || []
     
+    // Count unique student-assignment combinations (not total grades)
+    const uniqueCompletions = new Set(
+      validGrades.map(g => `${g.github_username}-${g.assignment_name}`)
+    ).size
+    
     const avgScore = validGrades.length > 0
       ? Math.round(validGrades.reduce((sum, g) => sum + (Number.parseInt(g.points_awarded) || 0), 0) / validGrades.length)
       : 0
 
     const completionRate = totalStudents > 0 && totalAssignments > 0
-      ? Math.round((validGrades.length / (totalStudents * totalAssignments)) * 100)
+      ? Math.round((uniqueCompletions / (totalStudents * totalAssignments)) * 100)
       : 0
 
     return {

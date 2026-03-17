@@ -147,9 +147,9 @@ export async function PATCH(request: NextRequest) {
     const body = await request.json()
     const { id, status, code_quality_score, feedback_for_student } = body
 
-    if (!id) {
+    if (!id || Number.isNaN(Number(id))) {
       return NextResponse.json(
-        { error: 'Missing reviewer ID' },
+        { error: 'Missing or invalid reviewer ID' },
         { status: 400 }
       )
     }
@@ -207,9 +207,9 @@ export async function DELETE(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
 
-    if (!id) {
+    if (!id || id === 'null' || id === 'undefined' || Number.isNaN(Number(id))) {
       return NextResponse.json(
-        { error: 'Missing reviewer ID' },
+        { error: 'Missing or invalid reviewer ID' },
         { status: 400 }
       )
     }
