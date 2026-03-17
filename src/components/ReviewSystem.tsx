@@ -120,14 +120,7 @@ export default function ReviewSystem({
   }, [loadData]);
 
   const handleAssignReviewer = async () => {
-    console.log("Attempting to assign reviewer:", {
-      selectedReviewer,
-      studentUsername,
-      assignmentName
-    });
-
     if (!selectedReviewer) {
-      console.log("No reviewer selected");
       return;
     }
 
@@ -142,8 +135,6 @@ export default function ReviewSystem({
         selectedReviewer,
         assignmentName
       );
-
-      console.log("Assignment result:", result);
 
       if (result.success) {
         setShowAssignForm(false);
@@ -249,19 +240,21 @@ export default function ReviewSystem({
     }
   };
 
+  const deleteReviewer = async (reviewerId: number) => {
+    const response = await fetch(`/api/reviewers?id=${reviewerId}`, {
+      method: 'DELETE'
+    });
+
+    if (!response.ok) {
+      const data = await response.json();
+      throw new Error(data.error || 'Failed to remove reviewer');
+    }
+  };
+
   const handleRemoveReviewer = async (reviewerId: number) => {
-    console.log('Removing reviewer with ID:', reviewerId, 'type:', typeof reviewerId);
     if (confirm(t('review_system.confirm_remove'))) {
       try {
-        const response = await fetch(`/api/reviewers?id=${reviewerId}`, {
-          method: 'DELETE'
-        });
-
-        if (!response.ok) {
-          const data = await response.json();
-          throw new Error(data.error || 'Failed to remove reviewer');
-        }
-
+        await deleteReviewer(reviewerId);
         await loadData();
         if (onDataUpdate) {
           setTimeout(onDataUpdate, 100);
@@ -270,6 +263,21 @@ export default function ReviewSystem({
         console.error("Error removing reviewer:", error);
         alert(`Error: ${error}`);
       }
+    }
+  };
+
+  const handleRemoveAllReviewers = async () => {
+    if (!confirm(t('review_system.actions.confirm_remove_all'))) return;
+
+    try {
+      await Promise.all(reviewers.map(r => deleteReviewer(r.id)));
+      await loadData();
+      if (onDataUpdate) {
+        setTimeout(onDataUpdate, 100);
+      }
+    } catch (error) {
+      console.error("Error removing reviewers:", error);
+      alert(`Error: ${error}`);
     }
   };
 
@@ -465,12 +473,7 @@ export default function ReviewSystem({
             </button>
             {reviewers.length > 0 && (
               <button
-                onClick={() => {
-                  if (confirm(t('review_system.actions.confirm_remove_all'))) {
-                    // Remove all reviewers for this assignment
-                    reviewers.forEach(r => handleRemoveReviewer(r.id));
-                  }
-                }}
+                onClick={handleRemoveAllReviewers}
                 className="px-3 py-1.5 text-sm font-medium text-red-600 hover:text-red-700 border border-red-300 hover:border-red-400 rounded flex items-center gap-1.5 transition-colors"
               >
                 <Trash2 className="w-3.5 h-3.5" />
@@ -543,7 +546,6 @@ export default function ReviewSystem({
             </div>
           ) : (
             reviewers.map((reviewer) => {
-              console.log('Rendering reviewer:', reviewer);
               const isActive = activeReviewerId === reviewer.id || reviewer.status === "in_progress";
               const reviewerEvaluations = criteriaEvaluations.get(reviewer.id) || [];
 
@@ -605,6 +607,13 @@ export default function ReviewSystem({
                               {t('review_system.checklist.continue')}
                             </button>
                           )}
+                          <button
+                            onClick={() => handleRemoveReviewer(reviewer.id)}
+                            className="px-2 py-1 text-xs text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
+                            title={t('review_system.actions.remove_reviewer')}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
                         </div>
                       </div>
                     </div>

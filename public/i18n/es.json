@@ -267,8 +267,8 @@
       "add_comment": "Agregar",
       "add_comment_button": "Agregar Comentario",
       "remove_reviewer": "Remover Revisor",
-      "remove_all": "Remover Revisor",
-      "confirm_remove_all": "¿Estás seguro de que quieres remover este usuario?",
+      "remove_all": "Remover Todos",
+      "confirm_remove_all": "¿Estás seguro de que quieres remover todos los revisores de esta tarea?",
       "start_review": "Iniciar",
       "complete_review": "Completar"
     },
